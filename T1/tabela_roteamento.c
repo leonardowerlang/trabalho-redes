@@ -101,7 +101,7 @@ void pop(FPrioridade **fila){		//Remove o elemento do topo
 
 void dijkstra(int roteador, int grafo[N_ROT][N_ROT]){
 	ii tabela[N_ROT];		//Tabela de roteamento
-	int aberto[N_ROT], i, vertice;		//1 não foi passado pelo dijkstra
+	int aberto[N_ROT], i, vertice;		//0 não foi passado pelo dijkstra
 	FPrioridade *fila = NULL;
 
 	memset(aberto, 0, sizeof(aberto));
@@ -121,13 +121,17 @@ void dijkstra(int roteador, int grafo[N_ROT][N_ROT]){
 		pop(&fila);		//Remove da fila o vertice
 		for(i = 0; i < N_ROT; i++){		//Verifica os vertices adjacente e adciona eles a fila
 			if((grafo[vertice][i] > 0) && (tabela[i].distancia > tabela[vertice].distancia + grafo[vertice][i]) && (aberto[i] == 0)){
-				tabela[i].v = vertice;
 				tabela[i].distancia = tabela[vertice].distancia + grafo[vertice][i];
 				push(&fila, i, tabela[i].distancia);
+				if(vertice == roteador){	//Encontra o proximo vertice do salto
+					tabela[i].v = i;
+				}else{
+					tabela[i].v = tabela[vertice].v;
+				}
 			}
 		}
 	}
-	printf("\nVertice\tDistancia  Proximo\n");		//Printa tabela de roteamento
+	printf("Vertice\tDistancia  Proximo\n");		//Printa tabela de roteamento
 	for(i = 0; i < N_ROT; i++){
 		printf("%d\t%d\t   %d\n", i, tabela[i].distancia, tabela[i].v);
 	}
@@ -139,11 +143,5 @@ int main(){
 	int grafo[N_ROT][N_ROT];
 	memset(grafo, -1, sizeof(grafo));
 	criar_grafo(grafo);
-	for (int i = 0; i < N_ROT; i++){
-		for (int j = 0; j < N_ROT; j++){
-			printf("%d 	", grafo[i][j]);
-		}
-		printf("\n");
-	}
-	dijkstra(0, grafo);
+	dijkstra(3, grafo);
 }
