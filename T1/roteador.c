@@ -12,6 +12,7 @@ typedef struct{
 
 typedef struct{
 	int origem, destino;
+	int p_origem, p_destino;
 	char mensagem[MSG_SIZE];	
 }TPacote;
 
@@ -46,31 +47,28 @@ void configura_roteadores(Router roteador[N_ROT]){
 	fclose(arq);
 }
 
-void enviar_msg(ii tabela[], Router roteadores[], int id_roteador){
-	struct sockaddr_in socket_addr;
-	int r_destino, sckt, s_len = sizeof(socket_addr);
-	char msg[MSG_SIZE];
-	TPacote pacote;
-
-	if ((sckt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
-		printf("ERRO! Socket\n");
+void inicializa_socket(struct sockaddr_in *socket_addr, int *sckt, int porta){
+	int s_len = sizeof(socket_addr);
+	if((*sckt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
+		printf("Falha ao criar Socket!");
 		exit(1);
+	}else{
+		memset((char *) socket_addr, 0, s_len);
+		socket_addr->sin_family = AF_INET;
+		socket_addr->sin_port = htons(porta); //Porta em ordem de bytes de rede
+		socket_addr->sin_addr.s_addr = htonl(INADDR_ANY); //Atribui o socket a todo tipo de interface
 	}
+}
 
+void enviar_msg(ii tabela[], Router roteadores[], int id_roteador, TPacote pacote){
+	struct sockaddr_in socket_addr;
+	int sckt, s_len = sizeof(socket_addr), proximo;
 
-	printf("Digite o roteador destino: ");
-	scanf("%d", &r_destino);
-	printf("Digite a mensagem: ");
-	scanf("%s", msg);
+	proximo = tabela[pacote.destino].v;
 
-	memset((char *) &socket_addr, 0, sizeof(socket_addr));
-	socket_addr.sin_family = AF_INET;
-	socket_addr.sin_port = htons(roteadores[r_destino].porta);
+	inicializa_socket(&socket_addr, &sckt, roteadores[proximo].porta);
 
-	pacote.origem = id_roteador;
-	pacote.destino = r_destino;
-	strcpy(pacote.mensagem, msg);
-	if(inet_aton(roteadores[r_destino].ip , &socket_addr.sin_addr) == 0){
+	if(inet_aton(roteadores[proximo].ip , &socket_addr.sin_addr) == 0){
 		printf("inet_atonfailed\n");
 		exit(1);
 	}
@@ -87,46 +85,43 @@ void enviar_msg(ii tabela[], Router roteadores[], int id_roteador){
 void *receptor(void * arg){
 	local_info *info = (local_info*)arg;
 	struct sockaddr_in socket_addr;
-	int id_roteador = info->id, sckt, s_len = sizeof(socket_addr);;
+	int id_roteador = info->id, sckt, s_len = sizeof(socket_addr);
 	Router *roteadores = info->roteadores;
 	ii *tabela = info->tabela_roteamento;
 	TPacote package;
 
+	inicializa_socket(&socket_addr, &sckt, roteadores[id_roteador].porta);
 
-	/*printf("Teste: %d\n", id_roteador);
+	if( bind(sckt, (struct sockaddr*) &socket_addr, s_len) == -1){
+		printf("A ligacao do socket com a porta falhou...\n");
+		exit(1);
+	}
 
-	for(int i = 0; i < N_ROT; i++){
-		printf("ID1: %d P: %d IP: %d\n", i, tabela[i].v, tabela[i].distancia);
-	}*/
-	if((sckt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
-        printf("Falha ao criar Socket!");
-        exit(1);
-    }else{
-        memset((char *) &socket_addr, 0, s_len);
-        socket_addr.sin_family = AF_INET;
-        socket_addr.sin_port = htons(roteadores[id_roteador].porta); //Porta em ordem de bytes de rede
-        socket_addr.sin_addr.s_addr = htonl(INADDR_ANY); //Atribui o socket a todo tipo de interface
-    }
-
-    if( bind(sckt, (struct sockaddr*) &socket_addr, s_len) == -1){
-        printf("A ligacao do socket com a porta falhou...\n");
-        exit(1);
-    }
-
-    while(1){
-		if(recvfrom(sckt, &package, sizeof(TPacote), 0, (struct sockaddr*)&socket_addr, &s_len) == -1){
+	while(1){
+		if(recvfrom(sckt, &package, sizeof(TPacote), 0, (struct sockaddr*)&socket_addr, (uint *)&s_len) == -1){
 			printf("putz");
 		}
 
-		printf("Teste: %s\n", package.mensagem);
-    }
+		if(package.destino != id_roteador){
+			printf("\nMensagem de [%d] encaminhada para [%d]\n", package.origem, package.destino);
+			enviar_msg(tabela, roteadores, id_roteador, package);
+		}else{
+			printf("\nMensagem recebida de [%d] enviada pela porta [%d]\n", package.origem, package.p_origem);
+			printf("A mensagem foi enviada para [%d] recebidad pela porta [%d]\n", package.destino, package.p_destino);
+			printf("Mensagem: %s\n", package.mensagem);		
+		}
+
+	}
 }
 
 int main(int argc, char const *argv[]){
-	int id_roteador;
+	int id_roteador, r_destino;
+	char msg[MSG_SIZE];
 	Router roteadores[N_ROT];
 	ii tabela[N_ROT];
 	local_info info;
+	TPacote pacote;
+
 	if(argc != 2){
 		printf("!ERRO, os argumentos passados estão incorretos\n");
 		return 0;
@@ -147,7 +142,21 @@ int main(int argc, char const *argv[]){
 	// }
 
 	while(1){
-		enviar_msg(tabela, roteadores, id_roteador);
+
+		printf("Digite o roteador destino: ");
+		scanf("%d", &r_destino);
+		printf("Digite a mensagem: ");
+		scanf("%s", msg);
+
+		pacote.origem = id_roteador;
+		pacote.destino = r_destino;
+		pacote.p_origem = roteadores[id_roteador].porta;
+		pacote.p_destino = roteadores[r_destino].porta;
+		strcpy(pacote.mensagem, msg);
+
+
+
+		enviar_msg(tabela, roteadores, id_roteador, pacote);
 	}
 	printf("asfasf\n");
 
