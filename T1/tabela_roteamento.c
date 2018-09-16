@@ -4,7 +4,8 @@
 #include <string.h>
 #include <limits.h>
 
-#define N_ROT 8		//Quantidade maxima de roteadores
+#define N_ROT 4		//Quantidade maxima de roteadores
+#define MSG_SIZE 100 //Tamanho maximo da msg
 
 typedef struct{		//Estrutura da tabela de roteamento
 	int v;		//Vertice predecessor
@@ -29,7 +30,7 @@ void criar_grafo(int grafo[N_ROT][N_ROT]){		//Cria tabela de adjacencia do grafo
 		grafo[id_0][id_1] = grafo[id_1][id_0] = distancia;
 	}
 	fclose(arq);
-	for (i = 0; i < N_ROT; ++i){		//Zera a diagonal principal da matriz
+	for (i = 0; i < N_ROT; i++){		//Zera a diagonal principal da matriz
 		grafo[i][i] = 0;
 	}
 }
@@ -99,14 +100,13 @@ void pop(FPrioridade **fila){		//Remove o elemento do topo
 }
 
 
-void dijkstra(int roteador, int grafo[N_ROT][N_ROT]){
-	ii tabela[N_ROT];		//Tabela de roteamento
+void dijkstra(int roteador, int grafo[N_ROT][N_ROT], ii tabela[N_ROT]){
 	int aberto[N_ROT], i, vertice;		//0 não foi passado pelo dijkstra
 	FPrioridade *fila = NULL;
 
 	memset(aberto, 0, sizeof(aberto));
 
-	for (i = 0; i < N_ROT; ++i){		//Zera a distancia da tabela
+	for (i = 0; i < N_ROT; i++){		//"Zera" a distancia da tabela
 		tabela[i].v = -1;
 		tabela[i].distancia = INT_MAX;
 	}
@@ -131,17 +131,21 @@ void dijkstra(int roteador, int grafo[N_ROT][N_ROT]){
 			}
 		}
 	}
-	printf("Vertice\tDistancia  Proximo\n");		//Printa tabela de roteamento
-	for(i = 0; i < N_ROT; i++){
-		printf("%d\t%d\t   %d\n", i, tabela[i].distancia, tabela[i].v);
-	}
-
-
 }
 
-int main(){
+void criar_tabela_roteamento(ii tabela[N_ROT], int roteador){		//Cria a tabela de roteamento atraves do roteador inicial
 	int grafo[N_ROT][N_ROT];
 	memset(grafo, -1, sizeof(grafo));
 	criar_grafo(grafo);
-	dijkstra(3, grafo);
+	dijkstra(roteador, grafo, tabela);
 }
+
+// int main(){
+// 	ii tabela[N_ROT];
+// 	int roteador = 0, i;
+// 	criar_tabela_roteamento(tabela, roteador);
+// 	printf("Vertice\tDistancia  Proximo\n");		//Printa tabela de roteamento
+// 	for(i = 0; i < N_ROT; i++){
+// 		printf("%d\t%d\t   %d\n", i, tabela[i].distancia, tabela[i].v);
+// 	}
+// }
