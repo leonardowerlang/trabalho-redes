@@ -16,11 +16,73 @@ typedef struct{
 	char mensagem[MSG_SIZE];	
 }TPacote;
 
+typedef struct BD_Log{
+	char log[50];
+	struct BD_Log *prox;
+}BDLog;
+
+typedef struct BD_Msg{
+	char mensagem[MSG_SIZE];
+	struct BD_Msg *prox;
+}BDMsg;
+
 typedef struct{
+	int id;
 	Router *roteadores;
 	ii *tabela_roteamento;
-	int id;
+	BDLog *log;
+	BDMsg *msg;
 }local_info;
+
+
+void add_log(BDLog **log, char msg[50]){
+	BDLog *l = *log, *novo;
+	novo = (BDLog *)malloc(sizeof(BDLog));
+	strcpy(novo->log, msg);
+	novo->prox = l;
+	*log = novo;
+}
+
+void imprimir_log(BDLog *log){
+	printf("LOG\n");
+	while(log != NULL){
+		printf("-> %s\n", log->log);
+		log = log->prox;
+	}
+	getchar();
+	getchar();
+}
+
+void add_msg(BDMsg **mensagens, char msg[50]){
+	BDMsg *m = *mensagens, *novo;
+	novo = (BDMsg *)malloc(sizeof(BDMsg));
+	strcpy(novo->mensagem, msg);
+	novo->prox = m;
+	*mensagens = novo;
+}
+
+void imprimir_msg(BDMsg *msg){
+	printf("MESSAGENS\n");
+	if(msg == NULL){
+		printf("Nenhuma mensagem encontrada!\n");
+	}
+	while(msg != NULL){
+		printf("%s\n", msg->mensagem);
+		msg = msg->prox;
+	}
+	getchar();
+	getchar();
+}
+
+
+void imprimir_roteadores(Router roteadores[N_ROT]){
+	system("clear");
+	for (int i = 0; i < N_ROT; i++){
+		printf("ID: %d\tPorta: %d\tIP%s\n", i, roteadores[i].porta, roteadores[i].ip);
+	}
+	getchar();
+	getchar();
+}
 
 int char2int(char const *str){
 	int a = 0, cont = 1, i;
@@ -82,45 +144,81 @@ void enviar_msg(ii tabela[], Router roteadores[], int id_roteador, TPacote pacot
 	return;
 }
 
+void enviar(ii tabela[N_ROT], Router roteadores[N_ROT], int id_roteador){
+	int r_destino;
+	char msg[MSG_SIZE];
+	TPacote pacote;
+	printf("Digite o roteador destino: ");
+	scanf("%d", &r_destino);
+	printf("Digite a mensagem: ");
+	scanf("%s", msg);
+
+	pacote.origem = id_roteador;
+	pacote.destino = r_destino;
+	pacote.p_origem = roteadores[id_roteador].porta;
+	pacote.p_destino = roteadores[r_destino].porta;
+	strcpy(pacote.mensagem, msg);
+	enviar_msg(tabela, roteadores, id_roteador, pacote);
+}
+
 void *receptor(void * arg){
 	local_info *info = (local_info*)arg;
 	struct sockaddr_in socket_addr;
 	int id_roteador = info->id, sckt, s_len = sizeof(socket_addr);
+	char log[MSG_SIZE], aux[2];
+	aux[1] = '\0';
 	Router *roteadores = info->roteadores;
 	ii *tabela = info->tabela_roteamento;
-	TPacote package;
+	TPacote pacote;
 
 	inicializa_socket(&socket_addr, &sckt, roteadores[id_roteador].porta);
 
-	if( bind(sckt, (struct sockaddr*) &socket_addr, s_len) == -1){
+	if( bind(sckt, (struct sockaddr *) &socket_addr, s_len) == -1){
 		printf("A ligacao do socket com a porta falhou...\n");
 		exit(1);
 	}
 
-	while(1){
-		if(recvfrom(sckt, &package, sizeof(TPacote), 0, (struct sockaddr*)&socket_addr, (uint *)&s_len) == -1){
+	while(true){
+		if(recvfrom(sckt, &pacote, sizeof(pacote), 0, (struct sockaddr *)&socket_addr, (uint *)&s_len) == -1){
 			printf("putz");
 		}
 
-		if(package.destino != id_roteador){
-			printf("\nMensagem de [%d] encaminhada para [%d]\n", package.origem, package.destino);
-			enviar_msg(tabela, roteadores, id_roteador, package);
+		if(pacote.destino != id_roteador){
+			strcpy(log, "Pacote de [");
+			aux[0] = (pacote.origem) + '0';
+			strcat(log, aux);
+			strcat(log, "] encaminhado para [");
+			aux[0] = (pacote.destino) + '0';
+			strcat(log, aux);
+			strcat(log, "]!");
+			add_log(&info->log ,log);
+			enviar_msg(tabela, roteadores, id_roteador, pacote);
 		}else{
-			printf("\nMensagem recebida de [%d] enviada pela porta [%d]\n", package.origem, package.p_origem);
-			printf("A mensagem foi enviada para [%d] recebidad pela porta [%d]\n", package.destino, package.p_destino);
-			printf("Mensagem: %s\n", package.mensagem);		
+			strcpy(log, "Pacote recebido de [");
+			aux[0] = (pacote.origem) + '0';
+			strcat(log, aux);
+			strcat(log, "]!");
+			add_log(&info->log ,log);
+			add_msg(&info->msg, pacote.mensagem);		
 		}
-
 	}
 }
 
+void menu(){
+	system("clear");
+	printf("[0] Sair\n");
+	printf("[1] Mostrar Tabela de Roteamento\n");
+	printf("[2] Mostrar Informações dos Roteadores\n");
+	printf("[3] Enviar Mensagem\n");
+	printf("[4] Mostrar Mensagens Recebidas\n");
+	printf("[5] Mostrar LOG\n");
+}
+
 int main(int argc, char const *argv[]){
-	int id_roteador, r_destino;
-	char msg[MSG_SIZE];
+	int id_roteador, op = 1;
 	Router roteadores[N_ROT];
 	ii tabela[N_ROT];
 	local_info info;
-	TPacote pacote;
 
 	if(argc != 2){
 		printf("!ERRO, os argumentos passados estão incorretos\n");
@@ -134,31 +232,32 @@ int main(int argc, char const *argv[]){
 	info.id = id_roteador;
 	info.tabela_roteamento = tabela;
 	info.roteadores = roteadores;
+	info.log = NULL;
+	info.msg = NULL;
 
 	pthread_create(&t_receptor, NULL, receptor, &info);
-
-	// for(int i = 0; i < N_ROT; i++){
-	// 	printf("ID: %d P: %d IP: %s\n", i, roteadores[i].porta, roteadores[i].ip);
-	// }
-
-	while(1){
-
-		printf("Digite o roteador destino: ");
-		scanf("%d", &r_destino);
-		printf("Digite a mensagem: ");
-		scanf("%s", msg);
-
-		pacote.origem = id_roteador;
-		pacote.destino = r_destino;
-		pacote.p_origem = roteadores[id_roteador].porta;
-		pacote.p_destino = roteadores[r_destino].porta;
-		strcpy(pacote.mensagem, msg);
-
-
-
-		enviar_msg(tabela, roteadores, id_roteador, pacote);
+	while(op){
+		menu();
+		scanf("%d", &op);
+		switch(op){
+			case 1:
+				imprimir_tabela(info.tabela_roteamento);
+				break;
+			case 2:
+				imprimir_roteadores(info.roteadores);
+				break;
+			case 3:
+				enviar(tabela, roteadores, id_roteador);
+				break;
+			case 4:
+				imprimir_msg(info.msg);
+				break;
+			case 5:
+				imprimir_log(info.log);
+				break;
+			default:
+				break;
+		}
 	}
-	printf("asfasf\n");
-
 	return 0;
 }

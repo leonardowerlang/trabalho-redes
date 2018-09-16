@@ -99,6 +99,14 @@ void pop(FPrioridade **fila){		//Remove o elemento do topo
 	free(aux);
 }
 
+void imprimir_tabela(ii tabela[N_ROT]){
+	system("clear");
+	for(int i = 0; i < N_ROT; i++){
+		printf("ID: %d\tDistancia: %d\tProximo: %d\n", i, tabela[i].distancia, tabela[i].v);
+	}
+	getchar();
+	getchar();
+}
 
 void dijkstra(int roteador, int grafo[N_ROT][N_ROT], ii tabela[N_ROT]){
 	int aberto[N_ROT], i, vertice;		//0 não foi passado pelo dijkstra
