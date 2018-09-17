@@ -1,39 +1,54 @@
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <pthread.h>
-#include "tabela_roteamento.c"
+#include "config.h"
 
-pthread_t t_receptor;
+int main(int argc, char const *argv[]){
+	int id_roteador, op = 1;
+	Router roteadores[N_ROT];
+	ii tabela[N_ROT];
+	local_info info;
+	TPacote pacote;
 
-typedef struct{
-	int porta;
-	char ip[20];
-}Router;
+	if(argc != 2){
+		printf("!ERRO, os argumentos passados estão incorretos\n");
+		return 0;
+	}
+	id_roteador = char2int(argv[1]);
+	printf("%d\n", id_roteador);
+	criar_tabela_roteamento(tabela, id_roteador);
+	configura_roteadores(roteadores);
 
-typedef struct{
-	int origem, destino;
-	int p_origem, p_destino;
-	char mensagem[MSG_SIZE];	
-}TPacote;
+	info.id = id_roteador;
+	info.tabela_roteamento = tabela;
+	info.roteadores = roteadores;
+	info.log = NULL;
+	info.msg = NULL;
 
-typedef struct BD_Log{
-	char log[50];
-	struct BD_Log *prox;
-}BDLog;
+	pthread_create(&t_receptor, NULL, receptor, &info);
 
-typedef struct BD_Msg{
-	char mensagem[MSG_SIZE];
-	struct BD_Msg *prox;
-}BDMsg;
-
-typedef struct{
-	int id;
-	Router *roteadores;
-	ii *tabela_roteamento;
-	BDLog *log;
-	BDMsg *msg;
-}local_info;
-
+	while(op){
+		menu();
+		scanf("%d", &op);
+		switch(op){
+			case 1:
+				imprimir_tabela(info.tabela_roteamento);
+				break;
+			case 2:
+				imprimir_roteadores(info.roteadores);
+				break;
+			case 3:
+				enviar(tabela, roteadores, pacote, id_roteador);
+				break;
+			case 4:
+				imprimir_msg(info.msg);
+				break;
+			case 5:
+				imprimir_log(info.log);
+				break;
+			default:
+				break;
+		}
+	}
+	return 0;
+}
 
 void add_log(BDLog **log, char msg[50]){
 	BDLog *l = *log, *novo;
@@ -214,51 +229,3 @@ void menu(){
 	printf("[5] Mostrar LOG\n");
 }
 
-int main(int argc, char const *argv[]){
-	int id_roteador, op = 1;
-	Router roteadores[N_ROT];
-	ii tabela[N_ROT];
-	local_info info;
-	TPacote pacote;
-
-	if(argc != 2){
-		printf("!ERRO, os argumentos passados estão incorretos\n");
-		return 0;
-	}
-	id_roteador = char2int(argv[1]);
-	printf("%d\n", id_roteador);
-	criar_tabela_roteamento(tabela, id_roteador);
-	configura_roteadores(roteadores);
-
-	info.id = id_roteador;
-	info.tabela_roteamento = tabela;
-	info.roteadores = roteadores;
-	info.log = NULL;
-	info.msg = NULL;
-
-	pthread_create(&t_receptor, NULL, receptor, &info);
-	while(op){
-		menu();
-		scanf("%d", &op);
-		switch(op){
-			case 1:
-				imprimir_tabela(info.tabela_roteamento);
-				break;
-			case 2:
-				imprimir_roteadores(info.roteadores);
-				break;
-			case 3:
-				enviar(tabela, roteadores, pacote, id_roteador);
-				break;
-			case 4:
-				imprimir_msg(info.msg);
-				break;
-			case 5:
-				imprimir_log(info.log);
-				break;
-			default:
-				break;
-		}
-	}
-	return 0;
-}
