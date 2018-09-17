@@ -144,10 +144,10 @@ void enviar_msg(ii tabela[], Router roteadores[], int id_roteador, TPacote pacot
 	return;
 }
 
-void enviar(ii tabela[N_ROT], Router roteadores[N_ROT], int id_roteador){
+void enviar(ii tabela[N_ROT], Router roteadores[N_ROT], TPacote pacote, int id_roteador){
 	int r_destino;
-	char msg[MSG_SIZE];
-	TPacote pacote;
+	char msg[100];
+
 	printf("Digite o roteador destino: ");
 	scanf("%d", &r_destino);
 	printf("Digite a mensagem: ");
@@ -219,6 +219,7 @@ int main(int argc, char const *argv[]){
 	Router roteadores[N_ROT];
 	ii tabela[N_ROT];
 	local_info info;
+	TPacote pacote;
 
 	if(argc != 2){
 		printf("!ERRO, os argumentos passados estão incorretos\n");
@@ -247,7 +248,7 @@ int main(int argc, char const *argv[]){
 				imprimir_roteadores(info.roteadores);
 				break;
 			case 3:
-				enviar(tabela, roteadores, id_roteador);
+				enviar(tabela, roteadores, pacote, id_roteador);
 				break;
 			case 4:
 				imprimir_msg(info.msg);
