@@ -45,6 +45,7 @@ enlace.config
 3 5 10
 4 5 5
 ```
+![enlace1](https://user-images.githubusercontent.com/18336694/46235327-393e8a00-c350-11e8-919b-bcc444c904f5.jpg)
 
 #### Ex 2:  
 roteador.config  
@@ -61,6 +62,8 @@ enlace.config
 1 3 5
 2 3 3
 ```
+![enlace2](https://user-images.githubusercontent.com/18336694/46235400-87ec2400-c350-11e8-9ef7-85a2ef7493b9.jpg)
+
 #### Ex 3:
 roteador.config  
 ```
@@ -84,4 +87,6 @@ enlace.config
 4 5 2
 5 6 5
 ```
+![enlace3](https://user-images.githubusercontent.com/18336694/46235417-95a1a980-c350-11e8-8fab-4e6382faa9e0.jpg)
+
 *Lembre de trocar o valor de N_ROT no arquivo config.h*
