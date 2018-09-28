@@ -5,13 +5,13 @@ Compilando o arquivo da fila de prioridade:
 ```
 $ gcc -c fila.c -o fila.o
 ```
-Compilando o arquivo da tabela de roteamento e do roteador e renomeando o arquivo executavel para roteador:
+Compilando o arquivo da tabela de roteamento e do roteador e renomeando o arquivo executável para roteador:
 ```
 $ gcc tabela_roteamento.c roteador.c fila.o -o roteador -lpthread
 ```
 ### Executando o Programa
-Na hora de executar o programa informe o arquivo executavel e o id do roteador.  
-Ex:
+Na hora de executar o programa informe o arquivo executável e o id do roteador.  
+Exemplo:
 ```
 $ ./roteador 1
 ```
@@ -22,4 +22,65 @@ dos roteadores e o terceior é a distancia entre os roteadores.
 Para alterar o ip ou as portas dos roteadores acesse o arquivo roteador.config. O primeiro valor é o id do roteador,
 o segundo é sua porta e o terceiro é o ip. 
   
-Para alterar a quantidade de roteadores altere a variável N_ROT do arquivo config.h
+Para alterar a quantidade de roteadores altere a variável N_ROT do arquivo config.h  
+
+### Exemplos de enlaces
+#### Ex 1:  
+roteador.config  
+```
+0 25001 127.0.0.1
+1 25002 127.0.0.1
+2 25003 127.0.0.1
+3 25004 127.0.0.1
+4 25005 127.0.0.1
+5 25006 127.0.0.1
+```
+enlace.config
+```
+0 1 10
+0 2 15
+1 3 2
+1 4 5
+2 3 2
+3 5 10
+4 5 5
+```
+
+#### Ex 2:  
+roteador.config  
+```
+0 25001	127.0.0.1
+1 25002 127.0.0.1
+2 25003 127.0.0.1
+3 25004 127.0.0.1
+```
+enlace.config
+```
+0 1 4
+0 3 2
+1 3 5
+2 3 3
+```
+#### Ex 3:
+roteador.config  
+```
+0 25001 127.0.0.1
+1 25002 127.0.0.1
+2 25003 127.0.0.1
+3 25004 127.0.0.1
+4 25005 127.0.0.1
+5 25006 127.0.0.1
+6 25007 127.0.0.1
+
+```
+enlace.config
+```
+0 1 2
+0 2 3
+1 2 2
+2 3 5
+3 4 3
+3 5 8
+4 5 2
+5 6 5
+```
