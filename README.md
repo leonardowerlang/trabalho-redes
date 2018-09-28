@@ -1,5 +1,5 @@
 # Trabalho de Redes #
-
+Alunos: Henrique Alberto de Andrade e Leonardo Werlang
 ### Compilação
 Compilando o arquivo da fila de prioridade:
 ```
