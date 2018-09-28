@@ -43,13 +43,13 @@ int main(int argc, char const *argv[]){
 			case 2:
 				if(pthread_mutex_lock(&mutex) == 0){
 					imprimir_roteadores(info.roteadores);		// Mostra as informações dos roteadores
-					sleep(1);
 					pthread_mutex_unlock(&mutex);
 				}
 				break;
 			case 3:
 				if(pthread_mutex_lock(&mutex) == 0){
 					enviar(tabela, roteadores, pacote, id_roteador, &info.log);	// Envia uma mensagem
+					sleep(1);
 					pthread_mutex_unlock(&mutex);
 				}
 				break;
@@ -208,7 +208,7 @@ void enviar(ii tabela[N_ROT], Router roteadores[N_ROT], TPacote pacote, int id_r
 	system("clear");
 	imprimir_roteadores(roteadores);
 	printf(" Informe o ID do roteador destino → ");
-	while(scanf("%d", &r_destino) != 1 && r_destino >= N_ROT){		// Lê o ID do roteador destino
+	while(scanf("%d", &r_destino) != 1 || r_destino >= N_ROT){		// Lê o ID do roteador destino
 		printf(" Informe o ID do roteador destino → ");
 		getchar();
 	}
@@ -270,6 +270,7 @@ void *receptor(void * arg){		// Recebe os pacotes
 			info->novas_msg++;
 			if(pthread_mutex_trylock(&mutex) == 0){		// Atualiza o número de mensagens recebidas no menu
 				menu(info->novas_msg, id_roteador, roteadores[id_roteador].ip, roteadores[id_roteador].porta);
+				printf("\n");
 				pthread_mutex_unlock(&mutex);
 			}
 		}else{	// Encamhina para o próximo roteador
