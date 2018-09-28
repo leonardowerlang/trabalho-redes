@@ -84,3 +84,4 @@ enlace.config
 4 5 2
 5 6 5
 ```
+*Lembre de trocar o valor de N_ROT no arquivo config.h*
