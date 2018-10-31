@@ -2,6 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <time.h> 
 
 #define MSG_SIZE 100
 
@@ -21,5 +27,11 @@ typedef struct{
 
 typedef struct LE{
 	Pacote pacote;
+	int i;
 	struct LE *prox;
 }ListaEspera;
+
+typedef struct{
+	ListaEspera *listaEspera, *listaProcessamento;
+	int a, b;
+}LocalInfo;
