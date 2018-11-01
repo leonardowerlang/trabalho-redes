@@ -20,18 +20,24 @@ typedef struct{
 	char msg[MSG_SIZE];	// Conteudo da mensagem
 }Pacote;
 
-typedef struct{
+typedef struct RT{
+	int id;
 	char ip[20];
 	int porta;
+	struct RT *prox;
 }Roteador;
 
 typedef struct LE{
 	Pacote pacote;
-	int i;
 	struct LE *prox;
 }ListaEspera;
 
 typedef struct{
+	int id;
+	int porta;
+	char ip[20];
 	ListaEspera *listaEspera, *listaProcessamento;
-	int a, b;
+	struct sockaddr_in sck_enviar, sck_receber;
+	int sck_enviarfd, sck_receberfd;
+	Roteador *roteadores;
 }LocalInfo;
