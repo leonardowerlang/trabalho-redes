@@ -26,6 +26,22 @@ void imprimirRoteadores(Roteador *r){
 	}
 }
 
+void pushTopologia(Topologia **topologia, int id_0, int id_1, int distancia){
+	Topologia *t = *topologia, *novo = (Topologia *)malloc(sizeof(Topologia));
+	novo->id_0 = id_0;
+	novo->id_1 = id_1;
+	novo->distancia = distancia;
+	novo->prox = t;
+	*topologia = novo;
+}
+
+void imprimirTopologia(Topologia *t){
+	while(t != NULL){
+		printf("ID0: %d\tID1: %d\tDistancia: %d\n", t->id_0, t->id_1, t->distancia);
+		t = t->prox;
+	}
+}
+
 int char2int(char const *str){		// Converte char para int
 	int a = 0, cont = 1, i;
 	for (i = strlen(str) - 1; i >= 0; i--, cont *= 10){
@@ -62,11 +78,26 @@ void lerRoteadores(LocalInfo *info){
 	}
 }
 
+void lerTopologia(LocalInfo *info){
+	FILE *arq = fopen("enlaces.config", "r");		// Abre o arquivo com o enlace da rede
+	int id_0, id_1, distancia;
+	if(arq == NULL){
+		printf("Não foi possivel abrir o arquivo\n");
+		fclose(arq);
+		return;
+	}
+	while(fscanf(arq, "%d %d %d", &id_0, &id_1, &distancia) != EOF){		// Lê os dados do arquivo
+		pushTopologia(&info->topologia, id_0, id_1, distancia);
+	}
+}
+
 void inicializaRoteador(LocalInfo *info, int id){
 	info->id = id;
 	info->listaEspera = NULL;
 	info->listaProcessamento = NULL;
 	info->roteadores = NULL;
+	info->topologia = NULL;
 
 	lerRoteadores(info);
+	lerTopologia(info);
 }

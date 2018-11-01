@@ -10,4 +10,5 @@ int main(int argc, char const *argv[]){
 
 	inicializaRoteador(&info, char2int(argv[1]));
 	imprimirRoteadores(info.roteadores);
+	imprimirTopologia(info.topologia);
 }

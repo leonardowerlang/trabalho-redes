@@ -31,7 +31,7 @@ typedef struct TP{
 	int id_0;
 	int id_1;
 	int distancia;
-	Topologia *prox;
+	struct TP *prox;
 }Topologia;
 
 typedef struct LE{
