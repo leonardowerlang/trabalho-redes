@@ -14,7 +14,8 @@
 pthread_t t_enviar, t_receber, t_processar;
 
 typedef struct{
-	int tipo;		// 1 se dados e 0 controle
+	int tipo;		// 0 = dados e 1 = controle
+	int ack;		// Responsável por 
 	int idDestino;	// Roteador Destino
 	int idOrigem;	// Roteador Oerigem
 	char msg[MSG_SIZE];	// Conteudo da mensagem
@@ -43,7 +44,7 @@ typedef struct{
 	int id;
 	int porta;
 	char ip[20];
-	ListaEspera *listaEspera, *listaProcessamento;
+	ListaEspera *bufferSaida, *bufferEntrada;
 	Roteador *roteadores;
 	Topologia *topologia;
 }LocalInfo;

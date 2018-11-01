@@ -42,6 +42,26 @@ void imprimirTopologia(Topologia *t){
 	}
 }
 
+void pushListaEspera(ListaEspera **lista, Pacote pacote){
+	ListaEspera *l = *lista, *novo = (ListaEspera *)malloc(sizeof(ListaEspera));
+	novo->pacote = pacote;
+	novo->prox = l;
+	*lista = novo;
+}
+
+void popListaEspera(ListaEspera **lista){
+	ListaEspera *l = *lista;
+	*lista = l->prox;
+	free(l);
+}
+
+void imprimirLista(ListaEspera *lista){
+	while(lista != NULL){
+		printf("MSG: %s\n", lista->pacote.msg);
+		lista = lista->prox;
+	}
+}
+
 int char2int(char const *str){		// Converte char para int
 	int a = 0, cont = 1, i;
 	for (i = strlen(str) - 1; i >= 0; i--, cont *= 10){
@@ -50,14 +70,17 @@ int char2int(char const *str){		// Converte char para int
 	return a;
 }
 
-void inicializaSocket(int *sockfd, struct sockaddr_in *serv_addr, int porta){
-	if((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-		printf("\n Error : Could not create socket \n");
+void inicializaSocket(struct sockaddr_in *socket_addr, int *sckt, int porta){	// Inicializa o socket
+	int s_len = sizeof(socket_addr);
+	if((*sckt = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
+		printf("Falha ao criar Socket.\n");
+		exit(1);
+	}else{
+		memset((char *) socket_addr, 0, s_len);
+		socket_addr->sin_family = AF_INET;
+		socket_addr->sin_port = htons(porta); 
+		socket_addr->sin_addr.s_addr = htonl(INADDR_ANY); 
 	}
-	memset(serv_addr, '0', sizeof(struct sockaddr_in));
-	serv_addr->sin_family = AF_INET;
-	serv_addr->sin_port = htons(porta);
-	memset(serv_addr->sin_zero, 0x0, 8);
 }
 
 void lerRoteadores(LocalInfo *info){
@@ -76,6 +99,7 @@ void lerRoteadores(LocalInfo *info){
 			strcpy(info->ip, ip);
 		}
 	}
+	fclose(arq);
 }
 
 void lerTopologia(LocalInfo *info){
@@ -89,12 +113,14 @@ void lerTopologia(LocalInfo *info){
 	while(fscanf(arq, "%d %d %d", &id_0, &id_1, &distancia) != EOF){		// Lê os dados do arquivo
 		pushTopologia(&info->topologia, id_0, id_1, distancia);
 	}
+	fclose(arq);
 }
 
 void inicializaRoteador(LocalInfo *info, int id){
+	printf("ID: %d\n", id);
 	info->id = id;
-	info->listaEspera = NULL;
-	info->listaProcessamento = NULL;
+	info->bufferSaida = NULL;
+	info->bufferEntrada = NULL;
 	info->roteadores = NULL;
 	info->topologia = NULL;
 
