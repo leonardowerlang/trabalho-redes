@@ -69,9 +69,4 @@ void inicializaRoteador(LocalInfo *info, int id){
 	info->roteadores = NULL;
 
 	lerRoteadores(info);
-	inicializaSocket(&info->sck_receberfd, &info->sck_receber, info->porta);
-	info->sck_receber.sin_addr.s_addr = htonl(INADDR_ANY);
-
-
-
 }

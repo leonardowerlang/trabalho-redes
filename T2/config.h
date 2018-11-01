@@ -27,6 +27,13 @@ typedef struct RT{
 	struct RT *prox;
 }Roteador;
 
+typedef struct TP{
+	int id_0;
+	int id_1;
+	int distancia;
+	Topologia *prox;
+}Topologia;
+
 typedef struct LE{
 	Pacote pacote;
 	struct LE *prox;
@@ -37,7 +44,6 @@ typedef struct{
 	int porta;
 	char ip[20];
 	ListaEspera *listaEspera, *listaProcessamento;
-	struct sockaddr_in sck_enviar, sck_receber;
-	int sck_enviarfd, sck_receberfd;
 	Roteador *roteadores;
+	Topologia *topologia;
 }LocalInfo;
