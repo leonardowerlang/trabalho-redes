@@ -1,3 +1,6 @@
+#ifndef FUNCOES_H
+#define FUNCOES_H
+
 #include "config.h"
 
 Roteador *getRoteador(Roteador *r, int id);
@@ -11,3 +14,5 @@ void imprimirLista(ListaEspera *lista);
 void inicializaSocket(struct sockaddr_in *socket_addr, int *sckt, int porta);
 void lerRoteadores(LocalInfo *info);
 void inicializaRoteador(LocalInfo *info, int id);
+
+#endif
