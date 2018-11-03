@@ -4,6 +4,8 @@ void *receber(void *arg);
 void *processar(void *arg);
 void *enviar(void *arg);
 
+pthread_mutex_t mt_enviar = PTHREAD_MUTEX_INITIALIZER;
+
 int main(int argc, char const *argv[]){
 	LocalInfo info;
 	int op = 1;
@@ -33,7 +35,6 @@ int main(int argc, char const *argv[]){
 			scanf("%[^\n]s", pacote.msg);
 			pacote.tipo = 0;
 			pacote.idOrigem = info.id;
-
 			pushListaEspera(&info.bufferSaida, pacote);
 		}
 	}
@@ -49,9 +50,9 @@ void *enviar(void *arg){
 
 	while(1){
 		if(info->bufferSaida == NULL){
-			sleep(1);
 			continue;
 		}
+		if(pthread_mutex_trylock(&mt_enviar) == 0){
 		pacote = info->bufferSaida->pacote;
 		r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
 
@@ -60,6 +61,10 @@ void *enviar(void *arg){
 			popListaEspera(&info->bufferSaida);
 			continue;
 		}
+		if(pacote.tipo == 0){
+			pacote.ack = info->ack;
+			info->ack++;
+		}
 
 		inicializaSocket(&socket_addr, &sckt, r->porta);
 		if(inet_aton(r->ip , &socket_addr.sin_addr) == 0){ // Verifica se o endereço de IP é valido
@@ -67,28 +72,49 @@ void *enviar(void *arg){
 			exit(1);
 		}
 
-		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
-			printf("Não foi possivel enviar a mensagem.\n");
-			exit(1);
+			if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
+				printf("Não foi possivel enviar a mensagem.\n");
+				exit(1);
+			}
+			if(pacote.tipo == 0){
+				while(pthread_mutex_trylock(&mt_enviar) != 0);
+			}
+			pthread_mutex_unlock(&mt_enviar);
+			popListaEspera(&info->bufferSaida);
 		}
 
-		popListaEspera(&info->bufferSaida);
+
 	}	
 }
 
 void *processar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
+	Pacote pacote;
 	while(1){
 		if(info->bufferEntrada == NULL){
-			sleep(1);
 			continue;
 		}
 
 		if(info->bufferEntrada->pacote.idDestino == info->id){
-			printf("Tipo: %d\tDest: %d\tOrig: %d\n", info->bufferEntrada->pacote.tipo,
-			 										info->bufferEntrada->pacote.idDestino,
-			 										info->bufferEntrada->pacote.idOrigem);
-			printf("MSG: %s\n", info->bufferEntrada->pacote.msg);
+			imprimirPacote(&info->bufferEntrada->pacote);
+		}
+
+		if(info->bufferEntrada->pacote.tipo == 1 && info->bufferEntrada->pacote.ack == info->ack - 1){
+			printf("Pacote confirmado!\n");
+			pthread_mutex_unlock(&mt_enviar);
+		}
+
+		if(info->bufferEntrada->pacote.tipo == 0 && info->bufferEntrada->pacote.idDestino == info->id){
+			if(info->bufferEntrada->pacote.idDestino == info->bufferEntrada->pacote.idOrigem){ // Pacote para o proprio roteador
+				pthread_mutex_unlock(&mt_enviar);
+			}else{
+				pacote.idOrigem = info->id;
+				pacote.idDestino = info->bufferEntrada->pacote.idOrigem;
+				pacote.tipo = 1;
+				pacote.ack = info->bufferEntrada->pacote.ack;
+				pacote.msg[0] = '\0';
+				pushListaEspera(&info->bufferSaida, pacote);
+			}
 		}
 		popListaEspera(&info->bufferEntrada);
 	}

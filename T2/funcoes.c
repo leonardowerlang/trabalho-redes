@@ -43,10 +43,23 @@ void imprimirTopologia(Topologia *t){
 }
 
 void pushListaEspera(ListaEspera **lista, Pacote pacote){
+	int cont = 0;
 	ListaEspera *l = *lista, *novo = (ListaEspera *)malloc(sizeof(ListaEspera));
 	novo->pacote = pacote;
-	novo->prox = l;
-	*lista = novo;
+	novo->prox = NULL;
+	if (*lista == NULL){
+		*lista = novo;
+		return;
+	}
+	while(l->prox != NULL){
+		if(cont >= MAX_BUFFER){
+			printf("Buffer Cheio\n");
+			return;
+		}
+		cont++;
+		l = l->prox;
+	}
+	l->prox = novo;
 }
 
 void popListaEspera(ListaEspera **lista){
@@ -60,6 +73,16 @@ void imprimirLista(ListaEspera *lista){
 		printf("MSG: %s\n", lista->pacote.msg);
 		lista = lista->prox;
 	}
+}
+
+void imprimirPacote(Pacote *pacote){
+	printf("\n\n------------------------------------ Pacote ------------------------------------\n");
+	printf("Tipo: %d\n", pacote->tipo);
+	printf("ACK: %d\n", pacote->ack);
+	if(pacote->tipo == 0){
+		printf("MSG: %s\n", pacote->msg);
+	}
+	printf("--------------------------------------------------------------------------------\n");
 }
 
 int char2int(char const *str){		// Converte char para int
@@ -123,6 +146,7 @@ void inicializaRoteador(LocalInfo *info, int id){
 	info->bufferEntrada = NULL;
 	info->roteadores = NULL;
 	info->topologia = NULL;
+	info->ack = 0;
 
 	lerRoteadores(info);
 	lerTopologia(info);

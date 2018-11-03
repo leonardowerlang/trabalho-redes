@@ -10,6 +10,7 @@
 #include <time.h> 
 
 #define MSG_SIZE 100
+#define MAX_BUFFER 100
 
 pthread_t t_enviar, t_receber, t_processar;
 
@@ -43,6 +44,7 @@ typedef struct LE{
 typedef struct{
 	int id;
 	int porta;
+	int ack;
 	char ip[20];
 	ListaEspera *bufferSaida, *bufferEntrada;
 	Roteador *roteadores;
