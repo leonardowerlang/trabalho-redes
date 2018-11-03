@@ -20,8 +20,8 @@ int main(int argc, char const *argv[]){
 	imprimirRoteadores(info.roteadores);
 	imprimirTopologia(info.topologia);
 
-	pthread_create(&t_receber, NULL, &receber, &info);
 	pthread_create(&t_enviar, NULL, &enviar, &info);
+	pthread_create(&t_receber, NULL, &receber, &info);
 	pthread_create(&t_processar, NULL, &processar, &info);
 
 	while(op){
@@ -38,6 +38,10 @@ int main(int argc, char const *argv[]){
 			pushListaEspera(&info.bufferSaida, pacote, &mt_bufferSaida);
 		}
 	}
+	pthread_cancel(t_enviar);
+	pthread_cancel(t_receber);
+	pthread_cancel(t_processar);
+
 }
 
 
