@@ -4,7 +4,7 @@ void *receber(void *arg);
 void *processar(void *arg);
 void *enviar(void *arg);
 
-pthread_mutex_t mt_enviar = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mt_enviar = PTHREAD_MUTEX_INITIALIZER, mt_bufferSaida = PTHREAD_MUTEX_INITIALIZER, mt_bufferEntrada = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char const *argv[]){
 	LocalInfo info;
@@ -35,7 +35,7 @@ int main(int argc, char const *argv[]){
 			scanf("%[^\n]s", pacote.msg);
 			pacote.tipo = 0;
 			pacote.idOrigem = info.id;
-			pushListaEspera(&info.bufferSaida, pacote);
+			pushListaEspera(&info.bufferSaida, pacote, &mt_bufferSaida);
 		}
 	}
 }
@@ -47,43 +47,50 @@ void *enviar(void *arg){
 	int sckt, s_len = sizeof(socket_addr);
 	Roteador *r;
 	Pacote pacote;
+	time_t inicio, fim;
 
 	while(1){
 		if(info->bufferSaida == NULL){
 			continue;
 		}
 		if(pthread_mutex_trylock(&mt_enviar) == 0){
-		pacote = info->bufferSaida->pacote;
-		r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
+			pacote = info->bufferSaida->pacote;
+			r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
 
-		if(r == NULL){
-			printf("ERRO! Roteador não existe!\n");
-			popListaEspera(&info->bufferSaida);
-			continue;
-		}
-		if(pacote.tipo == 0){
-			pacote.ack = info->ack;
-			info->ack++;
-		}
+			if(r == NULL){
+				printf("ERRO! Roteador não existe!\n");
+				popListaEspera(&info->bufferSaida, &mt_bufferSaida);
+				continue;
+			}
+			if(pacote.tipo == 0){
+				pacote.ack = info->ack;
+				info->ack++;
+			}
 
-		inicializaSocket(&socket_addr, &sckt, r->porta);
-		if(inet_aton(r->ip , &socket_addr.sin_addr) == 0){ // Verifica se o endereço de IP é valido
-			printf("Endereço de IP invalido\n");
-			exit(1);
-		}
+			inicializaSocket(&socket_addr, &sckt, r->porta);
+			if(inet_aton(r->ip , &socket_addr.sin_addr) == 0){ // Verifica se o endereço de IP é valido
+				printf("Endereço de IP invalido\n");
+				exit(1);
+			}
 
 			if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
 				printf("Não foi possivel enviar a mensagem.\n");
 				exit(1);
 			}
 			if(pacote.tipo == 0){
-				while(pthread_mutex_trylock(&mt_enviar) != 0);
+				inicio = time(NULL);
+				fim = inicio;
+				while(pthread_mutex_trylock(&mt_enviar) != 0){
+					if(fim - inicio >= TIMEOUT){
+						printf("TIMEOUT!\n");
+						break;
+					}
+					fim = time(NULL);
+				}
 			}
 			pthread_mutex_unlock(&mt_enviar);
-			popListaEspera(&info->bufferSaida);
+			popListaEspera(&info->bufferSaida, &mt_bufferSaida);
 		}
-
-
 	}	
 }
 
@@ -113,10 +120,10 @@ void *processar(void *arg){
 				pacote.tipo = 1;
 				pacote.ack = info->bufferEntrada->pacote.ack;
 				pacote.msg[0] = '\0';
-				pushListaEspera(&info->bufferSaida, pacote);
+				pushListaEspera(&info->bufferSaida, pacote, &mt_bufferSaida);
 			}
 		}
-		popListaEspera(&info->bufferEntrada);
+		popListaEspera(&info->bufferEntrada, &mt_bufferEntrada);
 	}
 }
 
@@ -137,6 +144,6 @@ void *receber(void *arg){
 		if(recvfrom(sckt, &pacote, sizeof(pacote), 0, (struct sockaddr *)&socket_addr, (uint *)&s_len) == -1){// Recebe as mensagens do socket
 			printf("ERRO ao receber os pacotes.\n");
 		}
-		pushListaEspera(&info->bufferEntrada, pacote);
+		pushListaEspera(&info->bufferEntrada, pacote, &mt_bufferEntrada);
 	}
 }

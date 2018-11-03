@@ -42,30 +42,36 @@ void imprimirTopologia(Topologia *t){
 	}
 }
 
-void pushListaEspera(ListaEspera **lista, Pacote pacote){
+void pushListaEspera(ListaEspera **lista, Pacote pacote, pthread_mutex_t *mutex){
+	pthread_mutex_lock(mutex);
 	int cont = 0;
 	ListaEspera *l = *lista, *novo = (ListaEspera *)malloc(sizeof(ListaEspera));
 	novo->pacote = pacote;
 	novo->prox = NULL;
 	if (*lista == NULL){
 		*lista = novo;
+		pthread_mutex_unlock(mutex);
 		return;
 	}
 	while(l->prox != NULL){
 		if(cont >= MAX_BUFFER){
 			printf("Buffer Cheio\n");
+			pthread_mutex_unlock(mutex);
 			return;
 		}
 		cont++;
 		l = l->prox;
 	}
 	l->prox = novo;
+	pthread_mutex_unlock(mutex);
 }
 
-void popListaEspera(ListaEspera **lista){
+void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex){
+	pthread_mutex_lock(mutex);
 	ListaEspera *l = *lista;
 	*lista = l->prox;
 	free(l);
+	pthread_mutex_unlock(mutex);
 }
 
 void imprimirLista(ListaEspera *lista){

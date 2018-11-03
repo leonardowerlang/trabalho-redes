@@ -1,8 +1,8 @@
 #include "config.h"
 
 Roteador *getRoteador(Roteador *r, int id);
-void popListaEspera(ListaEspera **lista);
-void pushListaEspera(ListaEspera **lista, Pacote pacote);
+void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex);
+void pushListaEspera(ListaEspera **lista, Pacote pacote, pthread_mutex_t *mutex);
 void imprimirRoteadores(Roteador *r);
 void imprimirTopologia(Topologia *t);
 int char2int(char const *str);

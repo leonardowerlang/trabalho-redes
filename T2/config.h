@@ -7,10 +7,13 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <time.h> 
+#include <time.h>
+#include <limits.h>
+#include <stdbool.h>
 
 #define MSG_SIZE 100
 #define MAX_BUFFER 100
+#define TIMEOUT 5
 
 pthread_t t_enviar, t_receber, t_processar;
 
