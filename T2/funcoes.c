@@ -152,8 +152,41 @@ void inicializaRoteador(LocalInfo *info, int id){
 	info->bufferEntrada = NULL;
 	info->roteadores = NULL;
 	info->topologia = NULL;
+	info->msg = NULL;
+	info->log = NULL;
 	info->ack = 0;
 
 	lerRoteadores(info);
 	lerTopologia(info);
+}
+
+void pushLog(Log **log, char *msg, pthread_mutex_t *mutex){
+	pthread_mutex_lock(mutex);
+	Log *l = *log, *novo = (Log *)malloc(sizeof(Log));
+	strcpy(novo->msg, msg);
+	novo->prox = l;
+	*log = novo;
+	pthread_mutex_unlock(mutex);
+}
+
+void imprimirMSG(Log *log){
+	while(log != NULL){
+		printf("MSG: %s\n", log->msg);
+		log = log->prox;
+	}
+}
+
+void menu(){
+	//system("clear");
+	printf("\n\n _______________________________________________________________________ \n");
+	printf("| \tNº da Opção\t\t| \t\tOpção\t\t\t|\n");
+	printf("|-------------------------------|---------------------------------------|\n");
+	printf("|→ 0\t\t\t\t| Sair\t\t\t\t\t|\n");
+	printf("|→ 1\t\t\t\t| Enviar Mensagem\t\t\t|\n");
+	printf("|→ 2\t\t\t\t| Mostrar Informações dos Roteadores\t|\n");
+	printf("|→ 3\t\t\t\t| Mostrar Topologia\t\t\t|\n");
+	printf("|→ 4\t\t\t\t| Mostrar Mensagens Recebidas\t\t|\n");
+	printf("|→ 5\t\t\t\t| Mostrar LOG\t\t\t\t|\n");
+	printf("|_______________________________________________________________________|\n");
+	printf("→ ");
 }

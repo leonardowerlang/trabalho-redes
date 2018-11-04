@@ -47,6 +47,11 @@ typedef struct LE{
 	struct LE *prox;
 }ListaEspera;
 
+typedef struct BDLog{
+	char msg[MSG_SIZE];
+	struct BDLog *prox;
+}Log;
+
 typedef struct{
 	int id;
 	int porta;
@@ -55,6 +60,8 @@ typedef struct{
 	ListaEspera *bufferSaida, *bufferEntrada;
 	Roteador *roteadores;
 	Topologia *topologia;
+	Log *msg;
+	Log *log;
 }LocalInfo;
 
 #endif
