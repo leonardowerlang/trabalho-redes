@@ -5,6 +5,7 @@
 
 void menu();
 Roteador *getRoteador(Roteador *r, int id);
+Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOrigem, char *msg);
 void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex);
 void pushListaEspera(ListaEspera **lista, Pacote pacote, pthread_mutex_t *mutex);
 void imprimirRoteadores(Roteador *r);

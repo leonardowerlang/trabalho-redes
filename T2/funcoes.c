@@ -76,7 +76,7 @@ void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex){
 
 void imprimirLista(ListaEspera *lista){
 	while(lista != NULL){
-		printf("MSG: %s\n", lista->pacote.msg);
+		printf("IIIIII: %s\n", lista->pacote.msg);
 		lista = lista->prox;
 	}
 }
@@ -113,7 +113,7 @@ void inicializaSocket(struct sockaddr_in *socket_addr, int *sckt, int porta){	//
 }
 
 void lerRoteadores(LocalInfo *info){
-	FILE *arq = fopen("roteador.config", "r");		// Abre o arquivo com o enlace da rede
+	FILE *arq = fopen("roteador.config", "r");		// Abre o arquivo com o roteador.congig
 	int porta, id;
 	char ip[20];
 	if(arq == NULL){
@@ -174,6 +174,20 @@ void imprimirMSG(Log *log){
 		printf("MSG: %s\n", log->msg);
 		log = log->prox;
 	}
+}
+
+Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOrigem, char *msg){
+	Pacote *novo = (Pacote *)malloc(sizeof(Pacote));
+	novo->tipo = tipo;
+	novo->idDestino = idDestino;
+	novo->idOrigem = idOrigem;
+	strcpy(novo->msg, msg);
+	if(tipo == 2){
+		memcpy(novo->vetor_distancia, vetor_distancia, MAX_ROUT * sizeof(int));
+	}else{
+		memset(novo->vetor_distancia, -1, sizeof(novo->vetor_distancia));
+	}
+	return novo;
 }
 
 void menu(){

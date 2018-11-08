@@ -3,6 +3,7 @@
 void *receber(void *arg);
 void *processar(void *arg);
 void *enviar(void *arg);
+void *atualizar(void *arg);
 
 pthread_mutex_t mt_enviar = PTHREAD_MUTEX_INITIALIZER, mt_bufferSaida = PTHREAD_MUTEX_INITIALIZER, mt_bufferEntrada = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mt_log = PTHREAD_MUTEX_INITIALIZER, mt_msgLog = PTHREAD_MUTEX_INITIALIZER;
@@ -10,7 +11,7 @@ pthread_mutex_t mt_log = PTHREAD_MUTEX_INITIALIZER, mt_msgLog = PTHREAD_MUTEX_IN
 int main(int argc, char const *argv[]){
 	LocalInfo info;
 	int op = 1;
-	Pacote pacote;
+	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
 
 	if(argc != 2){
 		printf("ERRO! Informe o arquivo executável e o número do roteador.\n");
@@ -22,6 +23,7 @@ int main(int argc, char const *argv[]){
 	pthread_create(&t_enviar, NULL, &enviar, &info);
 	pthread_create(&t_receber, NULL, &receber, &info);
 	pthread_create(&t_processar, NULL, &processar, &info);
+	pthread_create(&t_atualizar, NULL, &atualizar, &info);
 
 	while(op){
 		menu();
@@ -30,13 +32,12 @@ int main(int argc, char const *argv[]){
 		switch(op){
 			case 1:
 				printf("Destino: ");
-				scanf("%d", &pacote.idDestino);
+				scanf("%d", &pacote->idDestino);
 				getchar();
 				printf("MSG: ");
-				scanf("%[^\n]s", pacote.msg);
-				pacote.tipo = 0;
-				pacote.idOrigem = info.id;
-				pushListaEspera(&info.bufferSaida, pacote, &mt_bufferSaida);
+				scanf("%[^\n]s", pacote->msg);
+				pacote = configurarPacote(0, 0, pacote->idDestino, info.id, pacote->msg);
+				pushListaEspera(&info.bufferSaida, *pacote, &mt_bufferSaida);
 				break;
 			case 2:
 				imprimirRoteadores(info.roteadores);
@@ -49,6 +50,8 @@ int main(int argc, char const *argv[]){
 				break;
 			case 5:
 				imprimirMSG(info.log);
+			case 6:
+				imprimirLista(info.bufferSaida);
 			default:
 				break;
 		}
@@ -79,6 +82,7 @@ void *enviar(void *arg){
 
 			if(r == NULL){
 				printf("ERRO! Roteador não existe!\n");
+				pthread_mutex_unlock(&mt_enviar);
 				popListaEspera(&info->bufferSaida, &mt_bufferSaida);
 				continue;
 			}
@@ -103,7 +107,7 @@ void *enviar(void *arg){
 			strcat(log, " enviado para [");
 			aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
 			strcat(log, aux);
-			strcat(log, "]\n");
+			strcat(log, "]");
 			pushLog(&info->log, log, &mt_log);
 
 			if(pacote.tipo == 0){
@@ -115,7 +119,7 @@ void *enviar(void *arg){
 						strcpy(log, "Pacote enviado para [");
 						aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
 						strcat(log, aux);
-						strcat(log, "] recebeu TIMEOUT!\n");
+						strcat(log, "] recebeu TIMEOUT!");
 						pushLog(&info->log, log, &mt_log);
 
 						break;
@@ -129,11 +133,16 @@ void *enviar(void *arg){
 	}	
 }
 
+void *atualizar(void *arg){
+	LocalInfo *info = (LocalInfo*)arg;
+
+}
+
 void *processar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	char log[50], aux[2];
 	aux[1] = '\0';
-	Pacote pacote;
+	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
 	while(1){
 		if(info->bufferEntrada == NULL){
 			continue;
@@ -145,7 +154,7 @@ void *processar(void *arg){
 				strcpy(log, "Pacote confirmado pelo roteador [");
 				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 				strcat(log, aux);
-				strcat(log, "]\n");
+				strcat(log, "]");
 				pushLog(&info->log, log, &mt_log);
 
 				pthread_mutex_unlock(&mt_enviar);
@@ -158,17 +167,20 @@ void *processar(void *arg){
 					strcpy(log, "Pacote recebido de [");
 					aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 					strcat(log, aux);
-					strcat(log, "]\n");
+					strcat(log, "]");
 					pushLog(&info->log, log, &mt_log);
 
 					pthread_mutex_unlock(&mt_enviar);
 				}else{
-					pacote.idOrigem = info->id;
-					pacote.idDestino = info->bufferEntrada->pacote.idOrigem;
-					pacote.tipo = 1;
-					pacote.ack = info->bufferEntrada->pacote.ack;
-					pacote.msg[0] = '\0';
-					pushListaEspera(&info->bufferSaida, pacote, &mt_bufferSaida);
+					strcpy(log, "Pacote de dados recebido de [");
+					aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
+					strcat(log, aux);
+					strcat(log, "]");
+					pushLog(&info->log, log, &mt_log);
+
+					pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
+					pacote->ack = info->bufferEntrada->pacote.ack;
+					pushListaEspera(&info->bufferSaida, *pacote, &mt_bufferSaida);
 				}
 			}
 		}
