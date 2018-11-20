@@ -16,13 +16,13 @@
 
 #define MSG_SIZE 100
 #define MAX_BUFFER 100
-#define TIMEOUT 5
+#define TIMEOUT 0.150
 #define MAX_ROUT 100
 
-pthread_t t_enviar, t_receber, t_processar, t_atualizar;
+pthread_t t_enviar, t_receber, t_processar, t_atualizar, t_timeout;
 
 typedef struct{
-	int tipo;		// 0 = dados e 1 = controle 2 = vetor de distancia
+	int tipo;		// 0 = dados e 1 = confirmação 2 = vetor de distancia
 	int ack;		// Responsável por 
 	int vetor_distancia[MAX_ROUT];
 	int idDestino;	// Roteador Destino
@@ -41,12 +41,13 @@ typedef struct TP{
 	int id_0;
 	int id_1;
 	int distancia;
-	int prox_salto;
 	struct TP *prox;
 }Topologia;
 
 typedef struct LE{
 	Pacote pacote;
+	int tentativas;
+	clock_t inicio;
 	struct LE *prox;
 }ListaEspera;
 
@@ -56,7 +57,7 @@ typedef struct BDLog{
 }Log;
 
 typedef struct VZ{
-	Roteador roteador;
+	int id_roteador;
 	int prox_salto;
 	int distancia;
 	struct VZ *prox;
@@ -67,12 +68,13 @@ typedef struct{
 	int porta;
 	int ack;
 	char ip[20];
-	ListaEspera *bufferSaida, *bufferEntrada;
+	ListaEspera *bufferSaida, *bufferEntrada, *bufferTimeout;
 	Roteador *roteadores;
 	Topologia *topologia;
 	Log *msg;
 	Log *log;
 	int distancia[MAX_ROUT];
+	Vizinhos *vizinhos;
 }LocalInfo;
 
 #endif

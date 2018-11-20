@@ -42,11 +42,13 @@ void imprimirTopologia(Topologia *t){
 	}
 }
 
-void pushListaEspera(ListaEspera **lista, Pacote pacote, pthread_mutex_t *mutex){
+void pushListaEspera(ListaEspera **lista, Pacote pacote, int tentativas, clock_t tempo, pthread_mutex_t *mutex){
 	pthread_mutex_lock(mutex);
 	int cont = 0;
 	ListaEspera *l = *lista, *novo = (ListaEspera *)malloc(sizeof(ListaEspera));
 	novo->pacote = pacote;
+	novo->tentativas = tentativas;
+	novo->inicio = tempo;
 	novo->prox = NULL;
 	if (*lista == NULL){
 		*lista = novo;
@@ -72,6 +74,38 @@ void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex){
 	*lista = l->prox;
 	free(l);
 	pthread_mutex_unlock(mutex);
+}
+
+void removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mutex){
+	printf("ENTROU\n");
+	pthread_mutex_lock(mutex);
+	ListaEspera *l = *lista, *aux = l;
+	if(l == NULL){
+		pthread_mutex_unlock(mutex);
+		printf("SAIU 1\n");
+		return;
+	}
+	if(l->pacote.ack == pacote->ack){
+		*lista = l->prox;
+		free(l);
+		pthread_mutex_unlock(mutex);
+		printf("SAIU 2\n");
+		return;
+	}else{
+		while(l != NULL){
+			if(l->pacote.ack == pacote->ack){
+				aux->prox = l->prox;
+				free(l);
+				pthread_mutex_unlock(mutex);
+				return;
+			}
+			aux = l;
+			l = l->prox;
+		}
+	}
+	printf("ERRO na remoção\n");
+	pthread_mutex_unlock(mutex);
+	printf("SAIU 3\n");
 }
 
 void imprimirLista(ListaEspera *lista){
@@ -150,10 +184,12 @@ void inicializaRoteador(LocalInfo *info, int id){
 	info->id = id;
 	info->bufferSaida = NULL;
 	info->bufferEntrada = NULL;
+	info->bufferTimeout = NULL;
 	info->roteadores = NULL;
 	info->topologia = NULL;
 	info->msg = NULL;
 	info->log = NULL;
+	info->vizinhos = NULL;
 	info->ack = 0;
 
 	lerRoteadores(info);
@@ -188,6 +224,51 @@ Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOr
 		memset(novo->vetor_distancia, -1, sizeof(novo->vetor_distancia));
 	}
 	return novo;
+}
+
+void pushVizinhos(Vizinhos **vizinhos, int id, int prox_salto, int distancia){
+	Vizinhos *v = *vizinhos, *novo = (Vizinhos *)malloc(sizeof(Vizinhos));
+	novo->id_roteador = id;
+	novo->prox_salto = prox_salto;
+	novo->distancia = distancia;
+	novo->prox = v;
+	*vizinhos = novo;
+}
+
+Vizinhos *getVizinho(Vizinhos *vizinhos, int id){
+	while(vizinhos != NULL){
+		if(vizinhos->id_roteador == id){
+			return vizinhos;
+		}
+	}
+	return NULL;
+}
+
+void popVizinhos(int id){
+
+}
+
+void imprimirVizinhos(Vizinhos *vizinhos){
+	while(vizinhos != NULL){
+		printf("----------------------- Vizinhos ---------------------\n");
+		printf("Rot: %d\n", vizinhos->id_roteador);
+		printf("Salto: %d\n", vizinhos->prox_salto);
+		printf("Dist: %d\n", vizinhos->distancia);
+		vizinhos = vizinhos->prox;
+	}
+}
+
+void inicializaVizinhos(LocalInfo *info){
+	Topologia *t = info->topologia;
+	while(t != NULL){
+		if(info->id == t->id_0){
+			pushVizinhos(&info->vizinhos, t->id_1, t->id_1, t->distancia);
+		}else if(info->id == t->id_1){
+			pushVizinhos(&info->vizinhos, t->id_0, t->id_0, t->distancia);
+		}
+
+		t = t->prox;
+	}
 }
 
 void menu(){

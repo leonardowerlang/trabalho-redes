@@ -4,8 +4,9 @@ void *receber(void *arg);
 void *processar(void *arg);
 void *enviar(void *arg);
 void *atualizar(void *arg);
+void *timeout(void *arg);
 
-pthread_mutex_t mt_enviar = PTHREAD_MUTEX_INITIALIZER, mt_bufferSaida = PTHREAD_MUTEX_INITIALIZER, mt_bufferEntrada = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mt_bufferTimeout = PTHREAD_MUTEX_INITIALIZER, mt_bufferSaida = PTHREAD_MUTEX_INITIALIZER, mt_bufferEntrada = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mt_log = PTHREAD_MUTEX_INITIALIZER, mt_msgLog = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char const *argv[]){
@@ -24,6 +25,7 @@ int main(int argc, char const *argv[]){
 	pthread_create(&t_receber, NULL, &receber, &info);
 	pthread_create(&t_processar, NULL, &processar, &info);
 	pthread_create(&t_atualizar, NULL, &atualizar, &info);
+	pthread_create(&t_timeout, NULL, &timeout, &info);
 
 	while(op){
 		menu();
@@ -37,7 +39,7 @@ int main(int argc, char const *argv[]){
 				printf("MSG: ");
 				scanf("%[^\n]s", pacote->msg);
 				pacote = configurarPacote(0, 0, pacote->idDestino, info.id, pacote->msg);
-				pushListaEspera(&info.bufferSaida, *pacote, &mt_bufferSaida);
+				pushListaEspera(&info.bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
 				break;
 			case 2:
 				imprimirRoteadores(info.roteadores);
@@ -50,8 +52,13 @@ int main(int argc, char const *argv[]){
 				break;
 			case 5:
 				imprimirMSG(info.log);
+				break;
 			case 6:
 				imprimirLista(info.bufferSaida);
+				break;
+			case 7:
+				imprimirVizinhos(info.vizinhos);
+				break;
 			default:
 				break;
 		}
@@ -59,129 +66,113 @@ int main(int argc, char const *argv[]){
 	pthread_cancel(t_enviar);
 	pthread_cancel(t_receber);
 	pthread_cancel(t_processar);
+	pthread_cancel(t_atualizar);
 }
 
 
 void *enviar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	struct sockaddr_in socket_addr;
-	int sckt, s_len = sizeof(socket_addr);
+	int sckt, s_len = sizeof(socket_addr), tentativas;
+	clock_t tempo;
 	char log[50], aux[2];
 	Roteador *r;
 	Pacote pacote;
-	time_t inicio, fim;
 	aux[1] = '\0';
 
 	while(1){
 		if(info->bufferSaida == NULL){
 			continue;
 		}
-		if(pthread_mutex_trylock(&mt_enviar) == 0){
-			pacote = info->bufferSaida->pacote;
-			r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
+		pacote = info->bufferSaida->pacote;
+		r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
 
-			if(r == NULL){
-				printf("ERRO! Roteador não existe!\n");
-				pthread_mutex_unlock(&mt_enviar);
-				popListaEspera(&info->bufferSaida, &mt_bufferSaida);
-				continue;
-			}
-			if(pacote.tipo == 0){
-				pacote.ack = info->ack;
-				info->ack++;
-			}
-
-			inicializaSocket(&socket_addr, &sckt, r->porta);
-			if(inet_aton(r->ip , &socket_addr.sin_addr) == 0){ // Verifica se o endereço de IP é valido
-				printf("Endereço de IP invalido\n");
-				exit(1);
-			}
-
-			if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
-				printf("Não foi possivel enviar a mensagem.\n");
-				exit(1);
-			}
-
-			strcpy(log, "Pacote de ");
-			info->bufferSaida->pacote.tipo ? strcat(log, "controle") : strcat(log, "dados");
-			strcat(log, " enviado para [");
-			aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
-			strcat(log, aux);
-			strcat(log, "]");
-			pushLog(&info->log, log, &mt_log);
-
-			if(pacote.tipo == 0){
-				inicio = time(NULL);
-				fim = inicio;
-				while(pthread_mutex_trylock(&mt_enviar) != 0){
-					if(fim - inicio >= TIMEOUT){
-
-						strcpy(log, "Pacote enviado para [");
-						aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
-						strcat(log, aux);
-						strcat(log, "] recebeu TIMEOUT!");
-						pushLog(&info->log, log, &mt_log);
-
-						break;
-					}
-					fim = time(NULL);
-				}
-			}
-			pthread_mutex_unlock(&mt_enviar);
+		if(r == NULL){
+			printf("ERRO! Roteador não existe!\n");
 			popListaEspera(&info->bufferSaida, &mt_bufferSaida);
+			continue;
 		}
+
+		inicializaSocket(&socket_addr, &sckt, r->porta);
+		if(inet_aton(r->ip , &socket_addr.sin_addr) == 0){ // Verifica se o endereço de IP é valido
+			printf("Endereço de IP invalido\n");
+			exit(1);
+		}
+
+		if(pacote.tipo == 0){
+			pacote.ack = info->ack;
+			info->ack++;
+		}
+
+		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
+			printf("Não foi possivel enviar a mensagem.\n");
+			exit(1);
+		}
+
+
+		strcpy(log, "Pacote de ");
+		if(info->bufferSaida->pacote.tipo == 0){
+			strcat(log, "dados");
+		}else if(info->bufferSaida->pacote.tipo == 1){
+			strcat(log, "confirmação");
+		}else{
+			strcat(log, "controle");
+		}
+		strcat(log, " enviado para [");
+		aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
+		strcat(log, aux);
+		strcat(log, "]");
+		pushLog(&info->log, log, &mt_log);
+
+		if(info->bufferSaida->pacote.tipo == 0 || info->bufferSaida->pacote.tipo == 3){
+			tentativas = info->bufferSaida->tentativas;
+			tempo = clock();
+			pushListaEspera(&info->bufferTimeout, pacote, tentativas, tempo, &mt_bufferTimeout);
+		}
+		popListaEspera(&info->bufferSaida, &mt_bufferSaida);
 	}	
 }
 
 void *atualizar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
-
+	
 }
 
 void *processar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	char log[50], aux[2];
-	aux[1] = '\0';
 	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
+	aux[1] = '\0';
 	while(1){
 		if(info->bufferEntrada == NULL){
 			continue;
 		}
 
 		if(info->bufferEntrada->pacote.idDestino == info->id){
-			if(info->bufferEntrada->pacote.tipo == 1 && info->bufferEntrada->pacote.ack == info->ack - 1){
+			if(info->bufferEntrada->pacote.tipo == 0){
+				pushLog(&info->msg, info->bufferEntrada->pacote.msg, &mt_msgLog);
 
-				strcpy(log, "Pacote confirmado pelo roteador [");
+				strcpy(log, "Pacote de dados recebido de [");
 				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 				strcat(log, aux);
 				strcat(log, "]");
 				pushLog(&info->log, log, &mt_log);
 
-				pthread_mutex_unlock(&mt_enviar);
+				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
+				pacote->ack = info->bufferEntrada->pacote.ack;
+				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
 			}
 
-			if(info->bufferEntrada->pacote.tipo == 0){
-				pushLog(&info->msg, info->bufferEntrada->pacote.msg, &mt_msgLog);
-				if(info->bufferEntrada->pacote.idDestino == info->bufferEntrada->pacote.idOrigem){ // Pacote para o proprio roteador
+			if(info->bufferEntrada->pacote.tipo == 1){
 
-					strcpy(log, "Pacote recebido de [");
-					aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
-					strcat(log, aux);
-					strcat(log, "]");
-					pushLog(&info->log, log, &mt_log);
-
-					pthread_mutex_unlock(&mt_enviar);
-				}else{
-					strcpy(log, "Pacote de dados recebido de [");
-					aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
-					strcat(log, aux);
-					strcat(log, "]");
-					pushLog(&info->log, log, &mt_log);
-
-					pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
-					pacote->ack = info->bufferEntrada->pacote.ack;
-					pushListaEspera(&info->bufferSaida, *pacote, &mt_bufferSaida);
-				}
+				strcpy(log, "Pacote de confirmação recebido de [");
+				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
+				strcat(log, aux);
+				strcat(log, "]");
+				pushLog(&info->log, log, &mt_log);
+				printf("t1\n");
+				removerListaEspera(&info->bufferTimeout, &info->bufferEntrada->pacote, &mt_bufferTimeout);
+				printf("t2\n");
 			}
 		}
 		popListaEspera(&info->bufferEntrada, &mt_bufferEntrada);
@@ -205,6 +196,43 @@ void *receber(void *arg){
 		if(recvfrom(sckt, &pacote, sizeof(pacote), 0, (struct sockaddr *)&socket_addr, (uint *)&s_len) == -1){// Recebe as mensagens do socket
 			printf("ERRO ao receber os pacotes.\n");
 		}
-		pushListaEspera(&info->bufferEntrada, pacote, &mt_bufferEntrada);
+		pushListaEspera(&info->bufferEntrada, pacote, 0, 0, &mt_bufferEntrada);
+	}
+}
+
+void *timeout(void * arg){
+	LocalInfo *info = (LocalInfo*)arg;
+	int tentativas;
+	clock_t inicio, tempo;
+	double fim;
+	char log[50], aux[2];
+	Pacote pacote;
+	aux[1] = '\0';
+	while(1){
+		if(info->bufferTimeout == NULL){
+			continue;
+		}
+
+		pthread_mutex_lock(&mt_bufferTimeout);
+		inicio =  info->bufferTimeout->inicio;
+		pacote = info->bufferTimeout->pacote;
+		tentativas = info->bufferTimeout->tentativas;
+		pthread_mutex_unlock(&mt_bufferTimeout);
+		
+		tempo = clock();
+		if((double)(tempo - inicio)/CLOCKS_PER_SEC > TIMEOUT){
+
+
+			strcpy(log, "Pacote enviado para [");
+			aux[0] = (pacote.idDestino) + '0';
+			strcat(log, aux);
+			strcat(log, "] recebeu TIMEOUT");
+			pushLog(&info->log, log, &mt_log);
+
+			if(pacote.tipo == 0 && tentativas < 2){
+				pushListaEspera(&info->bufferSaida, pacote, tentativas + 1, 0, &mt_bufferSaida);
+			}
+			popListaEspera(&info->bufferTimeout, &mt_bufferTimeout);
+		}
 	}
 }
