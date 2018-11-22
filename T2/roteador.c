@@ -57,7 +57,7 @@ int main(int argc, char const *argv[]){
 				imprimirLista(info.bufferSaida);
 				break;
 			case 7:
-				imprimirVizinhos(info.vizinhos);
+				
 				break;
 			default:
 				break;
@@ -67,6 +67,7 @@ int main(int argc, char const *argv[]){
 	pthread_cancel(t_receber);
 	pthread_cancel(t_processar);
 	pthread_cancel(t_atualizar);
+	pthread_cancel(t_timeout);
 }
 
 
@@ -104,12 +105,6 @@ void *enviar(void *arg){
 			info->ack++;
 		}
 
-		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
-			printf("Não foi possivel enviar a mensagem.\n");
-			exit(1);
-		}
-
-
 		strcpy(log, "Pacote de ");
 		if(info->bufferSaida->pacote.tipo == 0){
 			strcat(log, "dados");
@@ -124,6 +119,11 @@ void *enviar(void *arg){
 		strcat(log, "]");
 		pushLog(&info->log, log, &mt_log);
 
+		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
+			printf("Não foi possivel enviar a mensagem.\n");
+			exit(1);
+		}
+
 		if(info->bufferSaida->pacote.tipo == 0 || info->bufferSaida->pacote.tipo == 3){
 			tentativas = info->bufferSaida->tentativas;
 			tempo = clock();
@@ -135,7 +135,8 @@ void *enviar(void *arg){
 
 void *atualizar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
-	
+	printf("%d\n", info->id);
+	while(1);
 }
 
 void *processar(void *arg){
@@ -170,9 +171,7 @@ void *processar(void *arg){
 				strcat(log, aux);
 				strcat(log, "]");
 				pushLog(&info->log, log, &mt_log);
-				printf("t1\n");
 				removerListaEspera(&info->bufferTimeout, &info->bufferEntrada->pacote, &mt_bufferTimeout);
-				printf("t2\n");
 			}
 		}
 		popListaEspera(&info->bufferEntrada, &mt_bufferEntrada);
@@ -204,7 +203,6 @@ void *timeout(void * arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	int tentativas;
 	clock_t inicio, tempo;
-	double fim;
 	char log[50], aux[2];
 	Pacote pacote;
 	aux[1] = '\0';
@@ -221,7 +219,6 @@ void *timeout(void * arg){
 		
 		tempo = clock();
 		if((double)(tempo - inicio)/CLOCKS_PER_SEC > TIMEOUT){
-
 
 			strcpy(log, "Pacote enviado para [");
 			aux[0] = (pacote.idDestino) + '0';

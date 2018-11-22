@@ -56,12 +56,15 @@ typedef struct BDLog{
 	struct BDLog *prox;
 }Log;
 
-typedef struct VZ{
-	int id_roteador;
-	int prox_salto;
+typedef struct{
+	int idRoteador;
 	int distancia;
-	struct VZ *prox;
-}Vizinhos;
+}VetorDistancia;
+
+typedef struct{
+	VetorDistancia distancia[MAX_ROUT];
+	int proxSalto[MAX_ROUT];
+}TabelaRoteamento;
 
 typedef struct{
 	int id;
@@ -73,8 +76,7 @@ typedef struct{
 	Topologia *topologia;
 	Log *msg;
 	Log *log;
-	int distancia[MAX_ROUT];
-	Vizinhos *vizinhos;
+	TabelaRoteamento *tabela;
 }LocalInfo;
 
 #endif

@@ -5,8 +5,6 @@
 
 void menu();
 Roteador *getRoteador(Roteador *r, int id);
-void imprimirVizinhos(Vizinhos *vizinhos);
-void inicializaVizinhos(LocalInfo *info);
 Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOrigem, char *msg);
 void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex);
 void pushListaEspera(ListaEspera **lista, Pacote pacote, int tentativas, clock_t tempo, pthread_mutex_t *mutex);
