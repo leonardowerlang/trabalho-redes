@@ -19,5 +19,6 @@ void lerRoteadores(LocalInfo *info);
 void inicializaRoteador(LocalInfo *info, int id);
 void pushLog(Log **log, char *msg, pthread_mutex_t *mutex);
 void imprimirMSG(Log *log);
+void imprimirTabelaRoteamento(TabelaRoteamento *tabela);
 
 #endif

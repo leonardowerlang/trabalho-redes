@@ -17,7 +17,7 @@
 #define MSG_SIZE 100
 #define MAX_BUFFER 100
 #define TIMEOUT 0.150
-#define MAX_ROUT 100
+#define MAX_ROUT 5
 
 pthread_t t_enviar, t_receber, t_processar, t_atualizar, t_timeout;
 
@@ -38,8 +38,7 @@ typedef struct RT{
 }Roteador;
 
 typedef struct TP{
-	int id_0;
-	int id_1;
+	int idRoteador;
 	int distancia;
 	struct TP *prox;
 }Topologia;
@@ -62,7 +61,7 @@ typedef struct{
 }VetorDistancia;
 
 typedef struct{
-	VetorDistancia distancia[MAX_ROUT];
+	VetorDistancia vDist[MAX_ROUT];
 	int proxSalto[MAX_ROUT];
 }TabelaRoteamento;
 

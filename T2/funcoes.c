@@ -26,10 +26,9 @@ void imprimirRoteadores(Roteador *r){
 	}
 }
 
-void pushTopologia(Topologia **topologia, int id_0, int id_1, int distancia){
+void pushTopologia(Topologia **topologia, int id, int distancia){
 	Topologia *t = *topologia, *novo = (Topologia *)malloc(sizeof(Topologia));
-	novo->id_0 = id_0;
-	novo->id_1 = id_1;
+	novo->idRoteador = id;
 	novo->distancia = distancia;
 	novo->prox = t;
 	*topologia = novo;
@@ -37,7 +36,7 @@ void pushTopologia(Topologia **topologia, int id_0, int id_1, int distancia){
 
 void imprimirTopologia(Topologia *t){
 	while(t != NULL){
-		printf("ID0: %d\tID1: %d\tDistancia: %d\n", t->id_0, t->id_1, t->distancia);
+		printf("ID0: %d\tDistancia: %d\n", t->idRoteador, t->distancia);
 		t = t->prox;
 	}
 }
@@ -160,7 +159,7 @@ void lerRoteadores(LocalInfo *info){
 	fclose(arq);
 }
 
-void lerTopologia(LocalInfo *info){
+void lerTopologia(LocalInfo *info, Topologia **vizinhos){
 	FILE *arq = fopen("enlaces.config", "r");		// Abre o arquivo com o enlace da rede
 	int id_0, id_1, distancia;
 	if(arq == NULL){
@@ -169,9 +168,37 @@ void lerTopologia(LocalInfo *info){
 		return;
 	}
 	while(fscanf(arq, "%d %d %d", &id_0, &id_1, &distancia) != EOF){		// Lê os dados do arquivo
-		pushTopologia(&info->topologia, id_0, id_1, distancia);
+		if(id_0 == info->id){
+			pushTopologia(vizinhos, id_1, distancia);
+		}else if(id_1 == info->id){
+			pushTopologia(vizinhos, id_0, distancia);
+		}
 	}
 	fclose(arq);
+}
+
+void inicializarTabela(LocalInfo *info){
+	TabelaRoteamento *t = (TabelaRoteamento *)malloc(sizeof(TabelaRoteamento));
+	Topologia *vizinhos = NULL;
+	int i = 0;
+
+	for(i = 0; i < MAX_ROUT; i++){
+		t->vDist[i].idRoteador = -1;
+		t->vDist[i].distancia = -1;
+		t->proxSalto[i] =  -1;
+	}
+
+	lerTopologia(info, &vizinhos);
+	info->topologia = vizinhos;
+	i = 0;
+	while(vizinhos != NULL){
+		t->vDist[i].idRoteador = vizinhos->idRoteador;
+		t->vDist[i].distancia = vizinhos->distancia;
+		t->proxSalto[i] =  vizinhos->idRoteador;
+		vizinhos = vizinhos->prox;
+		i++;
+	}
+	info->tabela = t;
 }
 
 void inicializaRoteador(LocalInfo *info, int id){
@@ -185,9 +212,10 @@ void inicializaRoteador(LocalInfo *info, int id){
 	info->msg = NULL;
 	info->log = NULL;
 	info->ack = 0;
+	info->tabela = NULL;
 
 	lerRoteadores(info);
-	lerTopologia(info);
+	inicializarTabela(info);
 }
 
 void pushLog(Log **log, char *msg, pthread_mutex_t *mutex){
@@ -218,6 +246,16 @@ Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOr
 		memset(novo->vetor_distancia, -1, sizeof(novo->vetor_distancia));
 	}
 	return novo;
+}
+
+void imprimirTabelaRoteamento(TabelaRoteamento *tabela){
+	printf("\n\n------------------------------------ Tabela Roteamento ------------------------------------\n");
+	for(int i = 0; i < MAX_ROUT; i++){
+		printf("ID: %d\n", tabela->vDist[i].idRoteador);
+		printf("Dist: %d\n", tabela->vDist[i].distancia);
+		printf("Prox Salto: %d\n", tabela->proxSalto[i]);
+	}
+	printf("\n\n-------------------------------------------------------------------------------------------\n");
 }
 
 void menu(){

@@ -8,6 +8,7 @@ void *timeout(void *arg);
 
 pthread_mutex_t mt_bufferTimeout = PTHREAD_MUTEX_INITIALIZER, mt_bufferSaida = PTHREAD_MUTEX_INITIALIZER, mt_bufferEntrada = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mt_log = PTHREAD_MUTEX_INITIALIZER, mt_msgLog = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mt_tabelaRoteamento = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char const *argv[]){
 	LocalInfo info;
@@ -54,10 +55,10 @@ int main(int argc, char const *argv[]){
 				imprimirMSG(info.log);
 				break;
 			case 6:
-				imprimirLista(info.bufferSaida);
+				imprimirTopologia(info.topologia);
 				break;
 			case 7:
-				
+				imprimirTabelaRoteamento(info.tabela);
 				break;
 			default:
 				break;
@@ -135,8 +136,14 @@ void *enviar(void *arg){
 
 void *atualizar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
-	printf("%d\n", info->id);
-	while(1);
+	Topologia *temp;
+	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
+	while(1){
+		temp = info->topologia;
+		while(temp != NULL){
+			pacote = configurarPacote();
+		}
+	}
 }
 
 void *processar(void *arg){
