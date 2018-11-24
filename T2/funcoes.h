@@ -5,10 +5,10 @@
 
 void menu();
 Roteador *getRoteador(Roteador *r, int id);
-Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOrigem, char *msg);
+Pacote *configurarPacote(int tipo, VetorDistancia *vetor_distancia, int idDestino, int idOrigem, char *msg);
 void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex);
 void pushListaEspera(ListaEspera **lista, Pacote pacote, int tentativas, clock_t tempo, pthread_mutex_t *mutex);
-void removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mutex);
+int removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mutex);
 void imprimirRoteadores(Roteador *r);
 void imprimirTopologia(Topologia *t);
 int char2int(char const *str);
@@ -20,5 +20,9 @@ void inicializaRoteador(LocalInfo *info, int id);
 void pushLog(Log **log, char *msg, pthread_mutex_t *mutex);
 void imprimirMSG(Log *log);
 void imprimirTabelaRoteamento(TabelaRoteamento *tabela);
+int getPosicaoTabela(LocalInfo *info, int id);
+void setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int timeout);
+Topologia *getTopologia(Topologia *topologia, int id);
+void bellmanFord(LocalInfo *info, Pacote *pacote);
 
 #endif

@@ -22,9 +22,14 @@
 pthread_t t_enviar, t_receber, t_processar, t_atualizar, t_timeout;
 
 typedef struct{
+	int idRoteador;
+	int distancia;
+}VetorDistancia;
+
+typedef struct{
 	int tipo;		// 0 = dados e 1 = confirmação 2 = vetor de distancia
 	int ack;		// Responsável por 
-	int vetor_distancia[MAX_ROUT];
+	VetorDistancia vetor_distancia[MAX_ROUT];
 	int idDestino;	// Roteador Destino
 	int idOrigem;	// Roteador Oerigem
 	char msg[MSG_SIZE];	// Conteudo da mensagem
@@ -54,11 +59,6 @@ typedef struct BDLog{
 	char msg[MSG_SIZE];
 	struct BDLog *prox;
 }Log;
-
-typedef struct{
-	int idRoteador;
-	int distancia;
-}VetorDistancia;
 
 typedef struct{
 	VetorDistancia vDist[MAX_ROUT];

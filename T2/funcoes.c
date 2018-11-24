@@ -75,31 +75,35 @@ void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex){
 	pthread_mutex_unlock(mutex);
 }
 
-void removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mutex){
+int removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mutex){
 	pthread_mutex_lock(mutex);
+	int id;
 	ListaEspera *l = *lista, *aux = l;
 	if(l == NULL){
 		pthread_mutex_unlock(mutex);
-		return;
+		return -1;
 	}
 	if(l->pacote.ack == pacote->ack){
+		id = pacote->idOrigem;
 		*lista = l->prox;
 		free(l);
 		pthread_mutex_unlock(mutex);
-		return;
+		return id;
 	}else{
 		while(l != NULL){
 			if(l->pacote.ack == pacote->ack){
+				id = pacote->idOrigem;
 				aux->prox = l->prox;
 				free(l);
 				pthread_mutex_unlock(mutex);
-				return;
+				return id;
 			}
 			aux = l;
 			l = l->prox;
 		}
 	}
 	pthread_mutex_unlock(mutex);
+	return -1;
 }
 
 void imprimirLista(ListaEspera *lista){
@@ -177,6 +181,16 @@ void lerTopologia(LocalInfo *info, Topologia **vizinhos){
 	fclose(arq);
 }
 
+Topologia *getTopologia(Topologia *topologia, int id){
+	while(topologia != NULL){
+		if(topologia->idRoteador == id){
+			return topologia;
+		}
+		topologia = topologia->prox;
+	}
+	return NULL;
+}
+
 void inicializarTabela(LocalInfo *info){
 	TabelaRoteamento *t = (TabelaRoteamento *)malloc(sizeof(TabelaRoteamento));
 	Topologia *vizinhos = NULL;
@@ -184,7 +198,7 @@ void inicializarTabela(LocalInfo *info){
 
 	for(i = 0; i < MAX_ROUT; i++){
 		t->vDist[i].idRoteador = -1;
-		t->vDist[i].distancia = -1;
+		t->vDist[i].distancia = INT_MAX;
 		t->proxSalto[i] =  -1;
 	}
 
@@ -199,6 +213,7 @@ void inicializarTabela(LocalInfo *info){
 		i++;
 	}
 	info->tabela = t;
+	setPosicaoTabela(info, info->id, 0, info->id, 0);
 }
 
 void inicializaRoteador(LocalInfo *info, int id){
@@ -234,7 +249,7 @@ void imprimirMSG(Log *log){
 	}
 }
 
-Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOrigem, char *msg){
+Pacote *configurarPacote(int tipo, VetorDistancia *vetor_distancia, int idDestino, int idOrigem, char *msg){
 	Pacote *novo = (Pacote *)malloc(sizeof(Pacote));
 	novo->tipo = tipo;
 	novo->idDestino = idDestino;
@@ -248,14 +263,70 @@ Pacote *configurarPacote(int tipo, int *vetor_distancia, int idDestino, int idOr
 	return novo;
 }
 
+int getPosicaoTabela(LocalInfo *info, int id){
+	for(int i = 0; i < MAX_ROUT; i++){
+		if(info->tabela->vDist[i].idRoteador == id){
+			return i;
+		}
+	}
+	return -1;
+}
+
+void setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int timeout){
+	int posicao = getPosicaoTabela(info, id);
+	if(timeout == 1){
+		for(int i = 0; i < MAX_ROUT; i++){
+			if(info->tabela->proxSalto[i] == info->tabela->vDist[posicao].idRoteador){
+				info->tabela->vDist[i].distancia = INT_MAX;
+				info->tabela->proxSalto[i] = -1;
+			}
+		}
+		return;
+	}
+	if(posicao == -1){
+		for(int i = 0; i < MAX_ROUT; i++){
+			if(info->tabela->vDist[i].idRoteador == -1){
+				info->tabela->vDist[i].idRoteador = id;
+				info->tabela->vDist[i].distancia = distancia;
+				info->tabela->proxSalto[i] = proxSalto;
+				return;
+			}
+		}
+	}else{
+		if(info->tabela->vDist[posicao].distancia > distancia){
+			info->tabela->vDist[posicao].distancia = distancia;
+			info->tabela->proxSalto[posicao] = proxSalto;
+		}
+	}
+}
+
 void imprimirTabelaRoteamento(TabelaRoteamento *tabela){
 	printf("\n\n------------------------------------ Tabela Roteamento ------------------------------------\n");
 	for(int i = 0; i < MAX_ROUT; i++){
-		printf("ID: %d\n", tabela->vDist[i].idRoteador);
-		printf("Dist: %d\n", tabela->vDist[i].distancia);
-		printf("Prox Salto: %d\n", tabela->proxSalto[i]);
+		if(tabela->vDist[i].idRoteador != -1){
+			printf("ID: %d\t|", tabela->vDist[i].idRoteador);
+			printf("Dist: %d\t|", tabela->vDist[i].distancia);
+			printf("Prox Salto: %d\n", tabela->proxSalto[i]);
+		}
 	}
 	printf("\n\n-------------------------------------------------------------------------------------------\n");
+}
+
+void bellmanFord(LocalInfo *info, Pacote *pacote){
+	int posicao = getPosicaoTabela(info, pacote->idOrigem), i;
+	if(info->tabela->vDist[posicao].distancia == INT_MAX){
+		return;
+	}
+	for(i = 0; i < MAX_ROUT; i++){
+		if(pacote->vetor_distancia[i].idRoteador == -1 || pacote->vetor_distancia[i].distancia == INT_MAX){
+			continue;
+		}
+		setPosicaoTabela(info, 
+						pacote->vetor_distancia[i].idRoteador,
+						pacote->vetor_distancia[i].distancia + info->tabela->vDist[posicao].distancia,
+						info->tabela->vDist[posicao].idRoteador,
+						0);
+	}
 }
 
 void menu(){

@@ -101,7 +101,7 @@ void *enviar(void *arg){
 			exit(1);
 		}
 
-		if(pacote.tipo == 0){
+		if(pacote.tipo == 0 || pacote.tipo == 2){
 			pacote.ack = info->ack;
 			info->ack++;
 		}
@@ -118,14 +118,14 @@ void *enviar(void *arg){
 		aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
 		strcat(log, aux);
 		strcat(log, "]");
-		pushLog(&info->log, log, &mt_log);
+		//pushLog(&info->log, log, &mt_log);
 
 		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
 			printf("Não foi possivel enviar a mensagem.\n");
 			exit(1);
 		}
 
-		if(info->bufferSaida->pacote.tipo == 0 || info->bufferSaida->pacote.tipo == 3){
+		if(info->bufferSaida->pacote.tipo == 0 || info->bufferSaida->pacote.tipo == 2){
 			tentativas = info->bufferSaida->tentativas;
 			tempo = clock();
 			pushListaEspera(&info->bufferTimeout, pacote, tentativas, tempo, &mt_bufferTimeout);
@@ -141,14 +141,19 @@ void *atualizar(void *arg){
 	while(1){
 		temp = info->topologia;
 		while(temp != NULL){
-			pacote = configurarPacote();
+			pacote = configurarPacote(2, info->tabela->vDist, temp->idRoteador, info->id, "\0");
+			pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+			temp = temp->prox;
 		}
+		sleep(2);
 	}
 }
 
 void *processar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
+	int id;
 	char log[50], aux[2];
+	Topologia *vizinho;
 	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
 	aux[1] = '\0';
 	while(1){
@@ -178,7 +183,29 @@ void *processar(void *arg){
 				strcat(log, aux);
 				strcat(log, "]");
 				pushLog(&info->log, log, &mt_log);
-				removerListaEspera(&info->bufferTimeout, &info->bufferEntrada->pacote, &mt_bufferTimeout);
+
+				id = removerListaEspera(&info->bufferTimeout, &info->bufferEntrada->pacote, &mt_bufferTimeout);
+				if(id >= 0){
+					vizinho = getTopologia(info->topologia, id);
+					if(vizinho != NULL){
+						setPosicaoTabela(info, id, vizinho->distancia, id, 0);
+					}
+				}
+			}
+
+			if(info->bufferEntrada->pacote.tipo == 2){
+
+				strcpy(log, "Pacote do vetor de distancias recebido de [");
+				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
+				strcat(log, aux);
+				strcat(log, "]");
+				pushLog(&info->log, log, &mt_log);
+
+				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
+				pacote->ack = info->bufferEntrada->pacote.ack;
+				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+
+				bellmanFord(info, &info->bufferEntrada->pacote);
 			}
 		}
 		popListaEspera(&info->bufferEntrada, &mt_bufferEntrada);
@@ -208,32 +235,45 @@ void *receber(void *arg){
 
 void *timeout(void * arg){
 	LocalInfo *info = (LocalInfo*)arg;
+	ListaEspera *temp;
 	int tentativas;
 	clock_t inicio, tempo;
 	char log[50], aux[2];
 	Pacote pacote;
 	aux[1] = '\0';
 	while(1){
+		pthread_mutex_lock(&mt_bufferTimeout);
 		if(info->bufferTimeout == NULL){
+			pthread_mutex_unlock(&mt_bufferTimeout);
 			continue;
 		}
-
-		pthread_mutex_lock(&mt_bufferTimeout);
-		inicio =  info->bufferTimeout->inicio;
-		pacote = info->bufferTimeout->pacote;
-		tentativas = info->bufferTimeout->tentativas;
+		temp = info->bufferTimeout;
 		pthread_mutex_unlock(&mt_bufferTimeout);
+
+		inicio =  temp->inicio;
+		pacote = temp->pacote;
+		tentativas = temp->tentativas;
 		
 		tempo = clock();
 		if((double)(tempo - inicio)/CLOCKS_PER_SEC > TIMEOUT){
 
-			strcpy(log, "Pacote enviado para [");
-			aux[0] = (pacote.idDestino) + '0';
-			strcat(log, aux);
-			strcat(log, "] recebeu TIMEOUT");
-			pushLog(&info->log, log, &mt_log);
+			if(pacote.tipo == 0){
+				strcpy(log, "Pacote enviado para [");
+				aux[0] = (pacote.idDestino) + '0';
+				strcat(log, aux);
+				strcat(log, "] recebeu TIMEOUT");
+				pushLog(&info->log, log, &mt_log);
+			}else if(pacote.tipo == 2 && tentativas >= 2){
+				setPosicaoTabela(info, pacote.idDestino, -1, -1, 1);
 
-			if(pacote.tipo == 0 && tentativas < 2){
+				strcpy(log, "Roteador [");
+				aux[0] = (pacote.idDestino) + '0';
+				strcat(log, aux);
+				strcat(log, "] esta morto!");
+				pushLog(&info->log, log, &mt_log);
+			}
+
+			if((pacote.tipo == 0 || pacote.tipo == 2) && tentativas < 2){
 				pushListaEspera(&info->bufferSaida, pacote, tentativas + 1, 0, &mt_bufferSaida);
 			}
 			popListaEspera(&info->bufferTimeout, &mt_bufferTimeout);
