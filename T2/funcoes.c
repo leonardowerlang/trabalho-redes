@@ -321,19 +321,21 @@ void bellmanFord(LocalInfo *info, Pacote *pacote){
 }
 
 void imprimirTabelaRoteamento(TabelaRoteamento *tabela){
-	printf("\n\n------------------------------------ Tabela Roteamento ------------------------------------\n");
+	printf("\n\n---------------------------- Tabela Roteamento ------------------------------\n");
+	printf("|\tID\t|\tDistancia\t|\tProx Salto\t|\n");
 	for(int i = 0; i < MAX_ROUT; i++){
 		if(tabela->vDist[i].idRoteador != -1){
-			printf("ID: %d\t|", tabela->vDist[i].idRoteador);
-			printf("Dist: %d\t|", tabela->vDist[i].distancia);
-			printf("Prox Salto: %d\n", tabela->proxSalto[i]);
+			printf("|\t%d\t|", tabela->vDist[i].idRoteador);
+			printf("\t%d\t|", tabela->vDist[i].distancia);
+			printf("\t%d\t|\n", tabela->proxSalto[i]);
 		}
 	}
-	printf("\n\n-------------------------------------------------------------------------------------------\n");
+	printf("\n\n-----------------------------------------------------------------------------\n");
 }
 
 void imprimirVeetorDistancia(VetorDistancia *v){
 	printf("-------------Vetor-------------\n");
+	printf("|\tID\t|\tDistancia\t|\n");
 	for (int i = 0; i < MAX_ROUT; ++i){
 		printf("|\t%d\t|\t%d\t|\n", v[i].idRoteador, v[i].distancia);
 	}
