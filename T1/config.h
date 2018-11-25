@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include "fila.h"
 
-#define N_ROT 4			// Quantidade maxima de roteadores
+#define N_ROT 7			// Quantidade maxima de roteadores
 #define MSG_SIZE 100 	// Tamanho maximo da msg
 
 pthread_t t_receptor;
