@@ -24,5 +24,6 @@ int getPosicaoTabela(LocalInfo *info, int id);
 void setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int timeout);
 Topologia *getTopologia(Topologia *topologia, int id);
 void bellmanFord(LocalInfo *info, Pacote *pacote);
+void imprimirVeetorDistancia(VetorDistancia *v);
 
 #endif

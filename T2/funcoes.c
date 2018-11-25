@@ -256,7 +256,10 @@ Pacote *configurarPacote(int tipo, VetorDistancia *vetor_distancia, int idDestin
 	novo->idOrigem = idOrigem;
 	strcpy(novo->msg, msg);
 	if(tipo == 2){
-		memcpy(novo->vetor_distancia, vetor_distancia, MAX_ROUT * sizeof(int));
+		for(int i = 0; i < MAX_ROUT; i++){
+			novo->vetor_distancia[i].idRoteador = vetor_distancia[i].idRoteador;
+			novo->vetor_distancia[i].distancia = vetor_distancia[i].distancia;
+		}
 	}else{
 		memset(novo->vetor_distancia, -1, sizeof(novo->vetor_distancia));
 	}
@@ -300,18 +303,6 @@ void setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int
 	}
 }
 
-void imprimirTabelaRoteamento(TabelaRoteamento *tabela){
-	printf("\n\n------------------------------------ Tabela Roteamento ------------------------------------\n");
-	for(int i = 0; i < MAX_ROUT; i++){
-		if(tabela->vDist[i].idRoteador != -1){
-			printf("ID: %d\t|", tabela->vDist[i].idRoteador);
-			printf("Dist: %d\t|", tabela->vDist[i].distancia);
-			printf("Prox Salto: %d\n", tabela->proxSalto[i]);
-		}
-	}
-	printf("\n\n-------------------------------------------------------------------------------------------\n");
-}
-
 void bellmanFord(LocalInfo *info, Pacote *pacote){
 	int posicao = getPosicaoTabela(info, pacote->idOrigem), i;
 	if(info->tabela->vDist[posicao].distancia == INT_MAX){
@@ -327,6 +318,26 @@ void bellmanFord(LocalInfo *info, Pacote *pacote){
 						info->tabela->vDist[posicao].idRoteador,
 						0);
 	}
+}
+
+void imprimirTabelaRoteamento(TabelaRoteamento *tabela){
+	printf("\n\n------------------------------------ Tabela Roteamento ------------------------------------\n");
+	for(int i = 0; i < MAX_ROUT; i++){
+		if(tabela->vDist[i].idRoteador != -1){
+			printf("ID: %d\t|", tabela->vDist[i].idRoteador);
+			printf("Dist: %d\t|", tabela->vDist[i].distancia);
+			printf("Prox Salto: %d\n", tabela->proxSalto[i]);
+		}
+	}
+	printf("\n\n-------------------------------------------------------------------------------------------\n");
+}
+
+void imprimirVeetorDistancia(VetorDistancia *v){
+	printf("-------------Vetor-------------\n");
+	for (int i = 0; i < MAX_ROUT; ++i){
+		printf("|\t%d\t|\t%d\t|\n", v[i].idRoteador, v[i].distancia);
+	}
+	printf("-------------------------------\n");
 }
 
 void menu(){

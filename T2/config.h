@@ -17,7 +17,7 @@
 #define MSG_SIZE 100
 #define MAX_BUFFER 100
 #define TIMEOUT 0.150
-#define MAX_ROUT 5
+#define MAX_ROUT 10
 
 pthread_t t_enviar, t_receber, t_processar, t_atualizar, t_timeout;
 
