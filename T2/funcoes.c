@@ -1,8 +1,18 @@
 #include "funcoes.h"
 
-Roteador *getRoteador(Roteador *r, int id){
+Roteador *getRoteador(LocalInfo *info, int id){
+	int i, roteador = -1;
+	for(i = 0; i < MAX_ROUT; i++){
+		if(info->tabela->vDist[i].idRoteador == id){
+			roteador = info->tabela->proxSalto[i];
+		}
+	}
+	if(roteador == -1){
+		return NULL;
+	}
+	Roteador *r = info->roteadores;
 	while(r != NULL){
-		if(r->id == id){
+		if(r->id == roteador){
 			return r;
 		}
 		r = r->prox;
@@ -285,8 +295,8 @@ int setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int 
 		for(int i = 0; i < MAX_ROUT; i++){
 			if(info->tabela->proxSalto[i] == info->tabela->vDist[posicao].idRoteador ||
 			(info->tabela->vDist[i].idRoteador == info->tabela->vDist[posicao].idRoteador && info->tabela->vDist[i].distancia != INT_MAX)){
-
 				info->tabela->vDist[i].distancia = INT_MAX;
+				
 				info->tabela->proxSalto[i] = -1;
 				alteracao = 1;
 			}

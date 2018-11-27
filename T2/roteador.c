@@ -87,10 +87,10 @@ void *enviar(void *arg){
 			continue;
 		}
 		pacote = info->bufferSaida->pacote;
-		r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
+		r = getRoteador(info, info->bufferSaida->pacote.idDestino);
 
 		if(r == NULL){
-			printf("ERRO! Roteador não existe!\n");
+			//printf("ERRO! Roteador não existe!\n");
 			popListaEspera(&info->bufferSaida, &mt_bufferSaida);
 			continue;
 		}
@@ -159,7 +159,7 @@ void *atualizar(void *arg){
 
 void *processar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
-	int id;
+	int id, posicao;
 	char log[50], aux[2];
 	Topologia *vizinho;
 	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
@@ -203,7 +203,6 @@ void *processar(void *arg){
 								pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
 								vizinho = vizinho->prox;
 							}
-							printf("ALTERAÇÂO\n");
 						}
 					}
 				}
@@ -220,6 +219,30 @@ void *processar(void *arg){
 				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
 				pacote->ack = info->bufferEntrada->pacote.ack;
 				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+
+				posicao = getPosicaoTabela(info, info->bufferEntrada->pacote.idOrigem);
+
+				if(posicao >= 0){
+					if(info->tabela->vDist[posicao].distancia == INT_MAX){
+						vizinho = info->topologia;
+						while(vizinho != NULL){
+							if(vizinho->idRoteador == info->bufferEntrada->pacote.idOrigem){
+								break;
+							}
+							vizinho = vizinho->prox;
+						}
+						if(vizinho != NULL){
+							if(setPosicaoTabela(info, info->bufferEntrada->pacote.idOrigem, vizinho->distancia, info->bufferEntrada->pacote.idOrigem, 0)){
+								vizinho = info->topologia;
+								while(vizinho != NULL){
+									pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
+									pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+									vizinho = vizinho->prox;
+								}
+							}
+						}
+					}
+				}
 			}
 
 			if(info->bufferEntrada->pacote.tipo == 3){
@@ -236,14 +259,10 @@ void *processar(void *arg){
 						pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
 						vizinho = vizinho->prox;
 					}
-
-					printf("ALTERAÇÂO MANDAR PARA VIZINHOS\n");
 				}
 			}
 
 			if(info->bufferEntrada->pacote.tipo == 4){
-				printf("R: %d MORREU\n", info->bufferEntrada->pacote.vetor_distancia[0].idRoteador);
-
 				if(setPosicaoTabela(info, info->bufferEntrada->pacote.vetor_distancia[0].idRoteador, -1, -1, 1)){
 					vizinho = info->topologia;
 					while(vizinho != NULL){
