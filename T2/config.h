@@ -27,11 +27,11 @@ typedef struct{
 }VetorDistancia;
 
 typedef struct{
-	int tipo;		// 0 = dados e 1 = confirmação 2 = vetor de distancia
+	int tipo;		// 0 = dados e 1 = confirmação 2 = vivacidade 3 = vetor de distancia 4 = roteador morto
 	int ack;		// Responsável por 
 	VetorDistancia vetor_distancia[MAX_ROUT];
 	int idDestino;	// Roteador Destino
-	int idOrigem;	// Roteador Oerigem
+	int idOrigem;	// Roteador Origem
 	char msg[MSG_SIZE];	// Conteudo da mensagem
 }Pacote;
 

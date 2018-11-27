@@ -21,9 +21,9 @@ void pushLog(Log **log, char *msg, pthread_mutex_t *mutex);
 void imprimirMSG(Log *log);
 void imprimirTabelaRoteamento(TabelaRoteamento *tabela);
 int getPosicaoTabela(LocalInfo *info, int id);
-void setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int timeout);
+int setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int timeout);
 Topologia *getTopologia(Topologia *topologia, int id);
-void bellmanFord(LocalInfo *info, Pacote *pacote);
+int bellmanFord(LocalInfo *info, Pacote *pacote);
 void imprimirVeetorDistancia(VetorDistancia *v);
 
 #endif

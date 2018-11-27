@@ -107,18 +107,30 @@ void *enviar(void *arg){
 		}
 
 		strcpy(log, "Pacote de ");
-		if(info->bufferSaida->pacote.tipo == 0){
+		if(pacote.tipo == 0){
 			strcat(log, "dados");
-		}else if(info->bufferSaida->pacote.tipo == 1){
+			strcat(log, " enviado para [");
+			aux[0] = (pacote.idDestino) + '0';
+			strcat(log, aux);
+			strcat(log, "]");
+			pushLog(&info->log, log, &mt_log);
+		}else if(pacote.tipo == 1){
 			strcat(log, "confirmação");
-		}else{
-			strcat(log, "controle");
+			strcat(log, " enviado para [");
+			aux[0] = (pacote.idDestino) + '0';
+			strcat(log, aux);
+			strcat(log, "]");
+			//pushLog(&info->log, log, &mt_log);
+		}else if(pacote.tipo == 2){
+			strcat(log, "vivacidade");
+		}else if(pacote.tipo == 3){
+			strcat(log, "Vetor Distancia");
+			strcat(log, " enviado para [");
+			aux[0] = (pacote.idDestino) + '0';
+			strcat(log, aux);
+			strcat(log, "]");
+			pushLog(&info->log, log, &mt_log);
 		}
-		strcat(log, " enviado para [");
-		aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
-		strcat(log, aux);
-		strcat(log, "]");
-		//pushLog(&info->log, log, &mt_log);
 
 		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
 			printf("Não foi possivel enviar a mensagem.\n");
@@ -138,10 +150,22 @@ void *atualizar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	Topologia *temp;
 	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
+	temp = info->topologia;
+	while(temp != NULL){
+		pacote = configurarPacote(2, 0, temp->idRoteador, info->id, "\0");
+		pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+		temp = temp->prox;
+	}
+	temp = info->topologia;
+	while(temp != NULL){
+		pacote = configurarPacote(3, info->tabela->vDist, temp->idRoteador, info->id, "\0");
+		pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+		temp = temp->prox;
+	}
 	while(1){
 		temp = info->topologia;
 		while(temp != NULL){
-			pacote = configurarPacote(2, info->tabela->vDist, temp->idRoteador, info->id, "\0");
+			pacote = configurarPacote(2, 0, temp->idRoteador, info->id, "\0");
 			pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
 			temp = temp->prox;
 		}
@@ -182,30 +206,55 @@ void *processar(void *arg){
 				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 				strcat(log, aux);
 				strcat(log, "]");
-				pushLog(&info->log, log, &mt_log);
+				//pushLog(&info->log, log, &mt_log);
 
 				id = removerListaEspera(&info->bufferTimeout, &info->bufferEntrada->pacote, &mt_bufferTimeout);
 				if(id >= 0){
 					vizinho = getTopologia(info->topologia, id);
 					if(vizinho != NULL){
-						setPosicaoTabela(info, id, vizinho->distancia, id, 0);
+						if(setPosicaoTabela(info, id, vizinho->distancia, id, 0)){
+							vizinho = info->topologia;
+							while(vizinho != NULL){
+								pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
+								pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+								vizinho = vizinho->prox;
+							}
+							printf("ALTERAÇÂO\n");
+						}
 					}
 				}
 			}
 
 			if(info->bufferEntrada->pacote.tipo == 2){
 
-				strcpy(log, "Pacote do vetor de distancias recebido de [");
+				strcpy(log, "Pacote de vivacidade de [");
+				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
+				strcat(log, aux);
+				strcat(log, "]");
+				//pushLog(&info->log, log, &mt_log);
+
+				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
+				pacote->ack = info->bufferEntrada->pacote.ack;
+				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+			}
+
+			if(info->bufferEntrada->pacote.tipo == 3){
+				strcpy(log, "Pacote do vetor de distancia de [");
 				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 				strcat(log, aux);
 				strcat(log, "]");
 				pushLog(&info->log, log, &mt_log);
 
-				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
-				pacote->ack = info->bufferEntrada->pacote.ack;
-				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+				if(bellmanFord(info, &info->bufferEntrada->pacote)){
+					vizinho = info->topologia;
+					while(vizinho != NULL){
+						pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
+						pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+						vizinho = vizinho->prox;
+					}
 
-				bellmanFord(info, &info->bufferEntrada->pacote);
+					printf("ALTERAÇÂO MANDAR PARA VIZINHOS\n");
+				}
 			}
 		}
 		popListaEspera(&info->bufferEntrada, &mt_bufferEntrada);
@@ -236,7 +285,7 @@ void *receber(void *arg){
 void *timeout(void * arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	ListaEspera *temp;
-	int tentativas;
+	int tentativas, alteracao;
 	clock_t inicio, tempo;
 	char log[50], aux[2];
 	Pacote pacote;
@@ -264,13 +313,17 @@ void *timeout(void * arg){
 				strcat(log, "] recebeu TIMEOUT");
 				pushLog(&info->log, log, &mt_log);
 			}else if(pacote.tipo == 2 && tentativas >= 2){
-				setPosicaoTabela(info, pacote.idDestino, -1, -1, 1);
+				alteracao = setPosicaoTabela(info, pacote.idDestino, -1, -1, 1);
+
+				if(alteracao){
+					printf("ALTEROU;\n");
+				}
 
 				strcpy(log, "Roteador [");
 				aux[0] = (pacote.idDestino) + '0';
 				strcat(log, aux);
 				strcat(log, "] esta morto!");
-				pushLog(&info->log, log, &mt_log);
+				//pushLog(&info->log, log, &mt_log);
 			}
 
 			if((pacote.tipo == 0 || pacote.tipo == 2) && tentativas < 2){
