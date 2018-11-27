@@ -259,7 +259,7 @@ Pacote *configurarPacote(int tipo, VetorDistancia *vetor_distancia, int idDestin
 	novo->idDestino = idDestino;
 	novo->idOrigem = idOrigem;
 	strcpy(novo->msg, msg);
-	if(tipo == 3){
+	if(tipo == 3 || tipo == 4){
 		for(int i = 0; i < MAX_ROUT; i++){
 			novo->vetor_distancia[i].idRoteador = vetor_distancia[i].idRoteador;
 			novo->vetor_distancia[i].distancia = vetor_distancia[i].distancia;
@@ -283,7 +283,9 @@ int setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int 
 	int posicao = getPosicaoTabela(info, id), alteracao = 0;
 	if(timeout == 1){
 		for(int i = 0; i < MAX_ROUT; i++){
-			if(info->tabela->proxSalto[i] == info->tabela->vDist[posicao].idRoteador){
+			if(info->tabela->proxSalto[i] == info->tabela->vDist[posicao].idRoteador ||
+			(info->tabela->vDist[i].idRoteador == info->tabela->vDist[posicao].idRoteador && info->tabela->vDist[i].distancia != INT_MAX)){
+
 				info->tabela->vDist[i].distancia = INT_MAX;
 				info->tabela->proxSalto[i] = -1;
 				alteracao = 1;
