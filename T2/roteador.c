@@ -46,19 +46,13 @@ int main(int argc, char const *argv[]){
 				imprimirRoteadores(info.roteadores);
 				break;
 			case 3:
-				imprimirTopologia(info.topologia);
+				imprimirTabelaRoteamento(info.tabela);
 				break;
 			case 4:
 				imprimirMSG(info.msg);
 				break;
 			case 5:
 				imprimirMSG(info.log);
-				break;
-			case 6:
-				imprimirTopologia(info.topologia);
-				break;
-			case 7:
-				imprimirTabelaRoteamento(info.tabela);
 				break;
 			default:
 				break;
@@ -87,10 +81,10 @@ void *enviar(void *arg){
 			continue;
 		}
 		pacote = info->bufferSaida->pacote;
-		r = getRoteador(info, info->bufferSaida->pacote.idDestino);
+		r = getRoteador(info->roteadores, info->bufferSaida->pacote.idDestino);
 
 		if(r == NULL){
-			//printf("ERRO! Roteador não existe!\n");
+			printf("ERRO! Roteador não existe!\n");
 			popListaEspera(&info->bufferSaida, &mt_bufferSaida);
 			continue;
 		}
@@ -106,14 +100,22 @@ void *enviar(void *arg){
 			info->ack++;
 		}
 
-		if(pacote.tipo == 0){
-			strcpy(log, "Pacote de ");
+		strcpy(log, "Pacote de ");
+		if(info->bufferSaida->pacote.tipo == 0){
 			strcat(log, "dados");
 			strcat(log, " enviado para [");
-			aux[0] = (pacote.idDestino) + '0';
+			aux[0] = (info->bufferSaida->pacote.idDestino) + '0';
+			strcat(log, aux);
+			strcat(log, "]");
+			strcat(log, "por [");
+			aux[0] = (r->id) + '0';
 			strcat(log, aux);
 			strcat(log, "]");
 			pushLog(&info->log, log, &mt_log);
+		}else if(info->bufferSaida->pacote.tipo == 1){
+			strcat(log, "confirmação");
+		}else{
+			strcat(log, "controle");
 		}
 
 		if(sendto(sckt, &pacote, sizeof(pacote) , 0 , (struct sockaddr *)&socket_addr, s_len) == -1){ // Envia a mensagem
@@ -134,22 +136,10 @@ void *atualizar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	Topologia *temp;
 	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
-	temp = info->topologia;
-	while(temp != NULL){
-		pacote = configurarPacote(2, 0, temp->idRoteador, info->id, "\0");
-		pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-		temp = temp->prox;
-	}
-	temp = info->topologia;
-	while(temp != NULL){
-		pacote = configurarPacote(3, info->tabela->vDist, temp->idRoteador, info->id, "\0");
-		pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-		temp = temp->prox;
-	}
 	while(1){
 		temp = info->topologia;
 		while(temp != NULL){
-			pacote = configurarPacote(2, 0, temp->idRoteador, info->id, "\0");
+			pacote = configurarPacote(2, info->tabela->vDist, temp->idRoteador, info->id, "\0");
 			pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
 			temp = temp->prox;
 		}
@@ -159,7 +149,7 @@ void *atualizar(void *arg){
 
 void *processar(void *arg){
 	LocalInfo *info = (LocalInfo*)arg;
-	int id, posicao;
+	int id, temp;
 	char log[50], aux[2];
 	Topologia *vizinho;
 	Pacote *pacote = (Pacote *)malloc(sizeof(Pacote));
@@ -190,85 +180,39 @@ void *processar(void *arg){
 				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 				strcat(log, aux);
 				strcat(log, "]");
-				//pushLog(&info->log, log, &mt_log);
+				pushLog(&info->log, log, &mt_log);
 
 				id = removerListaEspera(&info->bufferTimeout, &info->bufferEntrada->pacote, &mt_bufferTimeout);
 				if(id >= 0){
 					vizinho = getTopologia(info->topologia, id);
 					if(vizinho != NULL){
-						if(setPosicaoTabela(info, id, vizinho->distancia, id, 0)){
-							vizinho = info->topologia;
-							while(vizinho != NULL){
-								pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
-								pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-								vizinho = vizinho->prox;
-							}
-						}
+						setPosicaoTabela(info, id, vizinho->distancia, id, 0);
 					}
 				}
 			}
 
 			if(info->bufferEntrada->pacote.tipo == 2){
 
-				strcpy(log, "Pacote de vivacidade de [");
-				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
-				strcat(log, aux);
-				strcat(log, "]");
-				//pushLog(&info->log, log, &mt_log);
-
-				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
-				pacote->ack = info->bufferEntrada->pacote.ack;
-				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-
-				posicao = getPosicaoTabela(info, info->bufferEntrada->pacote.idOrigem);
-
-				if(posicao >= 0){
-					if(info->tabela->vDist[posicao].distancia == INT_MAX){
-						vizinho = info->topologia;
-						while(vizinho != NULL){
-							if(vizinho->idRoteador == info->bufferEntrada->pacote.idOrigem){
-								break;
-							}
-							vizinho = vizinho->prox;
-						}
-						if(vizinho != NULL){
-							if(setPosicaoTabela(info, info->bufferEntrada->pacote.idOrigem, vizinho->distancia, info->bufferEntrada->pacote.idOrigem, 0)){
-								vizinho = info->topologia;
-								while(vizinho != NULL){
-									pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
-									pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-									vizinho = vizinho->prox;
-								}
-							}
-						}
-					}
-				}
-			}
-
-			if(info->bufferEntrada->pacote.tipo == 3){
-				strcpy(log, "Pacote do vetor de distancia de [");
+				strcpy(log, "Pacote do vetor de distancias recebido de [");
 				aux[0] = (info->bufferEntrada->pacote.idOrigem) + '0';
 				strcat(log, aux);
 				strcat(log, "]");
 				pushLog(&info->log, log, &mt_log);
 
-				if(bellmanFord(info, &info->bufferEntrada->pacote)){
-					vizinho = info->topologia;
-					while(vizinho != NULL){
-						pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
-						pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-						vizinho = vizinho->prox;
-					}
-				}
+				pacote = configurarPacote(1, 0, info->bufferEntrada->pacote.idOrigem, info->id, "\0");
+				pacote->ack = info->bufferEntrada->pacote.ack;
+				pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
+
+				bellmanFord(info, &info->bufferEntrada->pacote);
 			}
 
-			if(info->bufferEntrada->pacote.tipo == 4){
-				if(setPosicaoTabela(info, info->bufferEntrada->pacote.vetor_distancia[0].idRoteador, -1, -1, 1)){
-					vizinho = info->topologia;
-					while(vizinho != NULL){
-						pacote = configurarPacote(3, info->tabela->vDist, vizinho->idRoteador, info->id, "\0");
-						pushListaEspera(&info->bufferSaida, *pacote, 0, 0, &mt_bufferSaida);
-						vizinho = vizinho->prox;
+			if(info->bufferEntrada->pacote.tipo == 3){
+				for(int i = 0; i < MAX_ROUT; i++){
+					if(info->tabela->proxSalto[i] == info->bufferEntrada->pacote.idOrigem){
+						temp = setPosicaoTabela(info, info->bufferEntrada->pacote.vetor_distancia[0].idRoteador, -1, -1, 1);
+						if(temp == info->bufferEntrada->pacote.idOrigem){
+							setPosicaoTabela(info, temp, -1, -1, 1);
+						}
 					}
 				}
 			}
@@ -301,11 +245,10 @@ void *receber(void *arg){
 void *timeout(void * arg){
 	LocalInfo *info = (LocalInfo*)arg;
 	ListaEspera *temp;
-	VetorDistancia vetorTemporario[MAX_ROUT];
-	int tentativas, alteracao;
+	int tentativas;
 	clock_t inicio, tempo;
 	char log[50], aux[2];
-	Pacote pacote;
+	Pacote pacote, *tempPacote;
 	aux[1] = '\0';
 	Topologia *vizinho;
 	while(1){
@@ -331,19 +274,18 @@ void *timeout(void * arg){
 				strcat(log, "] recebeu TIMEOUT");
 				pushLog(&info->log, log, &mt_log);
 			}else if(pacote.tipo == 2 && tentativas >= 2){
-				alteracao = setPosicaoTabela(info, pacote.idDestino, -1, -1, 1);
+				setPosicaoTabela(info, pacote.idDestino, -1, -1, 1);
 
-				if(alteracao){
-					memset(vetorTemporario, -1, sizeof(vetorTemporario));
-					vetorTemporario[0].idRoteador = pacote.idDestino;
-					vetorTemporario[0].distancia =	INT_MAX;
-					vizinho = info->topologia;
-					while(vizinho != NULL){
-						pacote = *configurarPacote(4, vetorTemporario, vizinho->idRoteador, info->id, "\0");
-						pushListaEspera(&info->bufferSaida, pacote, 0, 0, &mt_bufferSaida);
-						vizinho = vizinho->prox;
+				vizinho = info->topologia;
+				while(vizinho != NULL){
+					if(vizinho->idRoteador != pacote.idDestino){
+						tempPacote = configurarPacote(3, 0, vizinho->idRoteador, info->id, "\0");
+						tempPacote->vetor_distancia[0].idRoteador = pacote.idDestino;
+						pushListaEspera(&info->bufferSaida, *tempPacote, 0, 0, &mt_bufferSaida);
 					}
+					vizinho = vizinho->prox;
 				}
+
 
 				strcpy(log, "Roteador [");
 				aux[0] = (pacote.idDestino) + '0';

@@ -1,18 +1,8 @@
 #include "funcoes.h"
 
-Roteador *getRoteador(LocalInfo *info, int id){
-	int i, roteador = -1;
-	for(i = 0; i < MAX_ROUT; i++){
-		if(info->tabela->vDist[i].idRoteador == id){
-			roteador = info->tabela->proxSalto[i];
-		}
-	}
-	if(roteador == -1){
-		return NULL;
-	}
-	Roteador *r = info->roteadores;
+Roteador *getRoteador(Roteador *r, int id){
 	while(r != NULL){
-		if(r->id == roteador){
+		if(r->id == id){
 			return r;
 		}
 		r = r->prox;
@@ -87,16 +77,14 @@ void popListaEspera(ListaEspera **lista, pthread_mutex_t *mutex){
 
 int removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mutex){
 	pthread_mutex_lock(mutex);
-	int id = -1;
+	int id;
 	ListaEspera *l = *lista, *aux = l;
 	if(l == NULL){
 		pthread_mutex_unlock(mutex);
 		return -1;
 	}
 	if(l->pacote.ack == pacote->ack){
-		if(l->pacote.tipo == 2){
-			id = pacote->idOrigem;
-		}
+		id = pacote->idOrigem;
 		*lista = l->prox;
 		free(l);
 		pthread_mutex_unlock(mutex);
@@ -104,9 +92,7 @@ int removerListaEspera(ListaEspera **lista, Pacote *pacote, pthread_mutex_t *mut
 	}else{
 		while(l != NULL){
 			if(l->pacote.ack == pacote->ack){
-				if(l->pacote.tipo == 2){
-					id = pacote->idOrigem;
-				}
+				id = pacote->idOrigem;
 				aux->prox = l->prox;
 				free(l);
 				pthread_mutex_unlock(mutex);
@@ -269,7 +255,7 @@ Pacote *configurarPacote(int tipo, VetorDistancia *vetor_distancia, int idDestin
 	novo->idDestino = idDestino;
 	novo->idOrigem = idOrigem;
 	strcpy(novo->msg, msg);
-	if(tipo == 3 || tipo == 4){
+	if(tipo == 2){
 		for(int i = 0; i < MAX_ROUT; i++){
 			novo->vetor_distancia[i].idRoteador = vetor_distancia[i].idRoteador;
 			novo->vetor_distancia[i].distancia = vetor_distancia[i].distancia;
@@ -290,18 +276,19 @@ int getPosicaoTabela(LocalInfo *info, int id){
 }
 
 int setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int timeout){
-	int posicao = getPosicaoTabela(info, id), alteracao = 0;
+	int posicao = getPosicaoTabela(info, id), alterou = 0;
 	if(timeout == 1){
 		for(int i = 0; i < MAX_ROUT; i++){
-			if(info->tabela->proxSalto[i] == info->tabela->vDist[posicao].idRoteador ||
-			(info->tabela->vDist[i].idRoteador == info->tabela->vDist[posicao].idRoteador && info->tabela->vDist[i].distancia != INT_MAX)){
+			if(info->tabela->proxSalto[i] == info->tabela->vDist[posicao].idRoteador){
 				info->tabela->vDist[i].distancia = INT_MAX;
-				
 				info->tabela->proxSalto[i] = -1;
-				alteracao = 1;
+			}else if(info->tabela->vDist[i].idRoteador == info->tabela->vDist[posicao].idRoteador){
+				alterou = info->tabela->proxSalto[posicao];
+				info->tabela->vDist[i].distancia = INT_MAX;
+				info->tabela->proxSalto[i] = -1;
 			}
 		}
-		return alteracao;
+		return alterou;
 	}
 	if(posicao == -1){
 		for(int i = 0; i < MAX_ROUT; i++){
@@ -309,56 +296,49 @@ int setPosicaoTabela(LocalInfo *info, int id, int distancia, int proxSalto, int 
 				info->tabela->vDist[i].idRoteador = id;
 				info->tabela->vDist[i].distancia = distancia;
 				info->tabela->proxSalto[i] = proxSalto;
-				return 1;
+				return -1;
 			}
 		}
 	}else{
 		if(info->tabela->vDist[posicao].distancia > distancia){
 			info->tabela->vDist[posicao].distancia = distancia;
 			info->tabela->proxSalto[posicao] = proxSalto;
-			return 1;
 		}
 	}
-	return alteracao;
+	return -1;
 }
 
-int bellmanFord(LocalInfo *info, Pacote *pacote){
-	int posicao = getPosicaoTabela(info, pacote->idOrigem), i, alteracao = 0, temp;
+void bellmanFord(LocalInfo *info, Pacote *pacote){
+	int posicao = getPosicaoTabela(info, pacote->idOrigem), i;
 	if(info->tabela->vDist[posicao].distancia == INT_MAX){
-		return 0;
+		return;
 	}
 	for(i = 0; i < MAX_ROUT; i++){
 		if(pacote->vetor_distancia[i].idRoteador == -1 || pacote->vetor_distancia[i].distancia == INT_MAX){
 			continue;
 		}
-		temp = setPosicaoTabela(info, 
+		setPosicaoTabela(info, 
 						pacote->vetor_distancia[i].idRoteador,
 						pacote->vetor_distancia[i].distancia + info->tabela->vDist[posicao].distancia,
 						info->tabela->vDist[posicao].idRoteador,
 						0);
-		if(alteracao != 1 && temp == 1){
-			alteracao = 1;
-		}
 	}
-	return 0;
 }
 
 void imprimirTabelaRoteamento(TabelaRoteamento *tabela){
-	printf("\n\n---------------------------- Tabela Roteamento ------------------------------\n");
-	printf("|\tID\t|\tDistancia\t|\tProx Salto\t|\n");
+	printf("\n\n------------------------------------ Tabela Roteamento ------------------------------------\n");
 	for(int i = 0; i < MAX_ROUT; i++){
 		if(tabela->vDist[i].idRoteador != -1){
-			printf("|\t%d\t|", tabela->vDist[i].idRoteador);
-			printf("\t%d\t|", tabela->vDist[i].distancia);
-			printf("\t%d\t|\n", tabela->proxSalto[i]);
+			printf("ID: %d\t|", tabela->vDist[i].idRoteador);
+			printf("Dist: %d\t|", tabela->vDist[i].distancia);
+			printf("Prox Salto: %d\n", tabela->proxSalto[i]);
 		}
 	}
-	printf("\n\n-----------------------------------------------------------------------------\n");
+	printf("\n\n-------------------------------------------------------------------------------------------\n");
 }
 
 void imprimirVeetorDistancia(VetorDistancia *v){
 	printf("-------------Vetor-------------\n");
-	printf("|\tID\t|\tDistancia\t|\n");
 	for (int i = 0; i < MAX_ROUT; ++i){
 		printf("|\t%d\t|\t%d\t|\n", v[i].idRoteador, v[i].distancia);
 	}
@@ -373,7 +353,7 @@ void menu(){
 	printf("|→ 0\t\t\t\t| Sair\t\t\t\t\t|\n");
 	printf("|→ 1\t\t\t\t| Enviar Mensagem\t\t\t|\n");
 	printf("|→ 2\t\t\t\t| Mostrar Informações dos Roteadores\t|\n");
-	printf("|→ 3\t\t\t\t| Mostrar Topologia\t\t\t|\n");
+	printf("|→ 3\t\t\t\t| Mostrar Tabela\t\t\t|\n");
 	printf("|→ 4\t\t\t\t| Mostrar Mensagens Recebidas\t\t|\n");
 	printf("|→ 5\t\t\t\t| Mostrar LOG\t\t\t\t|\n");
 	printf("|_______________________________________________________________________|\n");
